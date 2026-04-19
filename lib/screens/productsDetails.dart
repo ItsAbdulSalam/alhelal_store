@@ -1,7 +1,10 @@
-import 'package:first_store/models/cart_data.dart';
-import 'package:first_store/screens/cartPage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
+
+// استيراد الـ Bloc والملفات الضرورية
+import '../bloc/cart_bloc.dart';
+import '../bloc/cart_event.dart';
 import '../models/productModel.dart';
 
 class ProductsDetailsPage extends StatefulWidget {
@@ -14,33 +17,33 @@ class ProductsDetailsPage extends StatefulWidget {
 
 class _ProductsDetailsPageState extends State<ProductsDetailsPage> {
   int quantity = 1;
-  int selectedColorIndex = 0; // لمتابعة اللون المختار
+  late String currentImage; // الصورة التي ستتغير عند اختيار اللون
 
-  // قائمة ألوان افتراضية (يمكنك نقلها للموديل لاحقاً)
-  final List<Color> productColors = [
-    Colors.black,
-    Colors.deepPurple,
-    const Color(0xFFE5E5E5), // فضي
-    const Color(0xFFF5E1C0), // ذهبي
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // تعيين الصورة الأولية من بيانات المنتج
+    currentImage = widget.productdetails.image;
+  }
 
   void _handleAddToCart() {
-    int index = globalCartList.indexWhere(
-      (item) => item.product.id == widget.productdetails.id,
+    context.read<CartBloc>().add(
+      AddToCart(product: widget.productdetails, quantity: quantity),
     );
-    setState(() {
-      if (index != -1) {
-        globalCartList[index].quantity += quantity;
-      } else {
-        globalCartList.add(
-          CartItem(product: widget.productdetails, quantity: quantity),
-        );
-      }
-    });
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CartScreen()),
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "تمت إضافة $quantity من ${widget.productdetails.name} إلى السلة",
+        ),
+        backgroundColor: Colors.black87,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(20),
+      ),
     );
+    // يمكنك إلغاء تفعيل الـ pop إذا أردت بقاء المستخدم في الصفحة
+    // Navigator.pop(context);
   }
 
   @override
@@ -48,8 +51,8 @@ class _ProductsDetailsPageState extends State<ProductsDetailsPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.grey[50],
         elevation: 0,
+        backgroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new,
@@ -60,219 +63,244 @@ class _ProductsDetailsPageState extends State<ProductsDetailsPage> {
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              widget.productdetails.isFavorite
-                  ? Icons.favorite
-                  : Icons.favorite_border,
-              color: Colors.red,
-            ),
-            onPressed: () => setState(
-              () => widget.productdetails.isFavorite =
-                  !widget.productdetails.isFavorite,
-            ),
+            icon: const Icon(Icons.favorite_border, color: Colors.black),
+            onPressed: () {}, // يمكنك ربطها بـ FavoritesBloc لاحقاً
           ),
-          const Gap(10),
         ],
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. عرض الصورة مع Hero
-            Container(
-              height: 320,
+            // 1. عرض الصورة مع تأثير انتقال ناعم
+            SizedBox(
+              height: 350,
               width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(40),
-                  bottomRight: Radius.circular(40),
-                ),
-              ),
-              child: Hero(
-                tag: widget.productdetails.image,
-                child: Padding(
-                  padding: const EdgeInsets.all(30.0),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: Hero(
+                  tag: widget.productdetails.id,
                   child: Image.asset(
-                    widget.productdetails.image,
+                    currentImage,
+                    key: ValueKey<String>(currentImage),
                     fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.image_not_supported, size: 100),
                   ),
                 ),
               ),
             ),
 
-            Padding(
-              padding: const EdgeInsets.all(25),
+            // 2. حاوية المعلومات (Modern Rounded Container)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(25, 30, 25, 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(40),
+                  topRight: Radius.circular(40),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 2. الاسم والتقييم
+                  // الاسم والتقييم
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        widget.productdetails.name,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
+                      Expanded(
+                        child: Text(
+                          widget.productdetails.name,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.star, color: Colors.orange, size: 18),
-                            Gap(5),
-                            Text(
-                              "4.9",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
-                              ),
-                            ),
-                          ],
+                        child: const Text(
+                          "4.9 ⭐",
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const Gap(10),
+                  const Gap(15),
+
+                  // السعر
                   Text(
                     "\$${widget.productdetails.price}",
                     style: const TextStyle(
                       fontSize: 24,
                       color: Colors.orange,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-
                   const Gap(25),
 
-                  // 3. اختيار الألوان (جديد)
+                  // 3. قسم اختيار الألوان (ميزة إضافية)
                   const Text(
                     "الألوان المتوفرة",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  const Gap(12),
-                  Row(
-                    children: List.generate(productColors.length, (index) {
-                      return GestureDetector(
-                        onTap: () => setState(() => selectedColorIndex = index),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.only(right: 15),
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: selectedColorIndex == index
-                                  ? Colors.orange
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          child: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: productColors[index],
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
+                  const Gap(15),
+                  _buildColorSelector(),
 
-                  const Gap(30),
-
-                  // 4. الوصف بخط أفضل
+                  const Gap(25),
                   const Text(
                     "الوصف",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const Gap(10),
                   Text(
                     widget.productdetails.description,
                     style: TextStyle(
                       color: Colors.grey[600],
-                      height: 1.6,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                      fontSize: 14,
                     ),
                   ),
+                  const Gap(30),
 
-                  const Gap(35),
-
-                  // 5. التحكم بالكمية
+                  // التحكم بالكمية
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildQtyBtn(
-                        Icons.remove,
-                        () => setState(() => quantity > 1 ? quantity-- : null),
+                      const Text(
+                        "الكمية",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      const Spacer(),
+                      _qtyActionBtn(Icons.remove, () {
+                        if (quantity > 1) setState(() => quantity--);
+                      }),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
                           "$quantity",
                           style: const TextStyle(
-                            fontSize: 24,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      _buildQtyBtn(Icons.add, () => setState(() => quantity++)),
+                      _qtyActionBtn(
+                        Icons.add,
+                        () => setState(() => quantity++),
+                      ),
                     ],
                   ),
-                  const Gap(100), // مساحة للسكرول خلف الزر الثابت
+                  const Gap(100), // مساحة إضافية للسحب
                 ],
               ),
             ),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
 
-      // 6. زر الإضافة للسلة الثابت
-      bottomSheet: Container(
-        padding: const EdgeInsets.all(20),
+  // ويدجت اختيار الألوان (تغيير الصورة عند الضغط)
+  Widget _buildColorSelector() {
+    // إذا لم يكن للمنتج ألوان، لا تعرض شيئاً
+    if (widget.productdetails.variants == null) return const SizedBox();
+
+    return Row(
+      children: widget.productdetails.variants!.map((variant) {
+        bool isSelected = currentImage == variant.image;
+        return GestureDetector(
+          onTap: () => setState(() => currentImage = variant.image),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.only(right: 15),
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.orange : Colors.grey[300]!,
+                width: 2,
+              ),
+            ),
+            child: CircleAvatar(backgroundColor: variant.color, radius: 15),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        child: ElevatedButton(
-          onPressed: _handleAddToCart,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            minimumSize: const Size(double.infinity, 60),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            elevation: 0,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: ElevatedButton(
+        onPressed: _handleAddToCart,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black, // اللون الأسود يعطي طابع Prime أكثر
+          minimumSize: const Size(double.infinity, 60),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          child: const Text(
-            "إضافة إلى السلة",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          elevation: 5,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shopping_bag_outlined, color: Colors.white),
+            Gap(12),
+            Text(
+              "إضافة إلى السلة",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildQtyBtn(IconData icon, VoidCallback action) => InkWell(
-    onTap: action,
-    borderRadius: BorderRadius.circular(15),
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(15),
+  Widget _qtyActionBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5),
+          ],
+        ),
+        child: Icon(icon, size: 18, color: Colors.black87),
       ),
-      child: Icon(icon, size: 22, color: Colors.black),
-    ),
-  );
+    );
+  }
 }

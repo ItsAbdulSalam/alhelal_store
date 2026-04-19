@@ -35,8 +35,16 @@ dependencies:
   gap: ^3.0.1
   flutter_localization: ^0.4.0
   carousel_slider: ^5.1.2
+  shared_preferences: ^2.5.5
+  curved_navigation_bar: ^1.0.6
+  circle_nav_bar: ^2.2.0
+  google_nav_bar: ^5.0.7
+  line_icons: ^2.0.3
+  flutter_rating_bar: ^4.0.1
+
   flutter_localizations:
     sdk: flutter
+  flutter_bloc: ^9.1.1
 
 dev_dependencies:
   flutter_test:
@@ -62,12 +70,30 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/logo/logo.png
-    - assets/images/slider/slider1.png
-    - assets/images/slider/slider2.png
     - assets/images/ads/
     - assets/images/categories/
     - assets/images/products/
+    - assets/images/products/laptop/
+    - assets/images/products/watches/
     - assets/images/me.jpg
+    - assets/SplashScreen/1.jpeg
+    - assets/SplashScreen/2.jpeg
+    - assets/SplashScreen/3.jpeg
+    - assets/images/slider/
+    - assets/images/slider/1.jpg
+    - assets/images/slider/2.jpg
+    - assets/images/slider/3.jpg
+    - assets/images/slider/4.jpg
+    - assets/images/slider/5.jpg
+    - assets/images/slider/6.jpg
+    - assets/images/products/cameras/
+    - assets/images/products/cameras/1.jpg
+    - assets/images/products/cameras/2.jpg
+    - assets/images/products/cameras/3.jpg
+    - assets/images/products/laptop/1.jpg
+    - assets/images/products/laptop/2.jpg
+    - assets/images/products/laptop/3.jpg
+
     #   - images/a_dot_ham.jpeg
 
     # An image asset can refer to one or more resolution-specific "variants", see

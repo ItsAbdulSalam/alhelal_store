@@ -1,73 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
-import 'home.dart'; // استيراد الصفحة الرئيسية للعودة إليها
+import '../bloc/cart_bloc.dart';
+import '../bloc/cart_event.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
-  const OrderSuccessScreen({super.key});
+  final double totalPrice;
+  const OrderSuccessScreen({super.key, required this.totalPrice});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(30.0),
+          padding: const EdgeInsets.all(25),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // أيقونة النجاح مع أنيميشن بسيط (اختياري)
-              const Icon(
-                Icons.check_circle_outline_rounded,
-                color: Colors.green,
-                size: 120,
-              ),
-              const Gap(25),
-              const Text(
-                "تم تأكيد طلبك بنجاح!",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const Gap(15),
-              Text(
-                "شكراً لتسوقك من رات مارت. سيتم تجهيز طلبك وإرساله إليك في أقرب وقت ممكن.",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  height: 1.5,
+              const Icon(Icons.check_circle, color: Colors.green, size: 100),
+              const Gap(20),
+              const Text("تم الطلب بنجاح!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const Gap(20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("المبلغ الإجمالي المدفوع:"),
+                    Text("\$${totalPrice.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                  ],
                 ),
               ),
               const Gap(40),
-              // زر العودة للتسوق
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // العودة للصفحة الرئيسية وتصفير مسار التنقل
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HomeScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
-                  child: const Text(
-                    "العودة للرئيسية",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              ElevatedButton(
+                onPressed: () {
+                  context.read<CartBloc>().add(ClearCart()); // تصفير السلة
+                  Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+                },
+                child: const Text("العودة للرئيسية"),
+              )
             ],
           ),
         ),
