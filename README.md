@@ -1,17 +1,39 @@
-# first_store
+# 🚀 ALHELAL PRIME - Modern E-Commerce Solution
 
-A new Flutter project.
+**ALHELAL PRIME** هو تطبيق متجر إلكتروني متكامل وعالي الأداء، تم بناؤه باستخدام إطار عمل **Flutter**. يهدف التطبيق إلى تقديم تجربة تسوق سلسة، سريعة، وآمنة للمستخدمين، مع الاعتماد على أحدث المعايير الهندسية في تطوير تطبيقات الهاتف المحمول.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🛠 التقنيات المستخدمة (Tech Stack)
 
-A few resources to get you started if this is your first Flutter project:
+تم بناء التطبيق باستخدام مجموعة من التقنيات والأدوات المتقدمة لضمان استقرار الأداء وسهولة التوسع:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+* **State Management:** تم اعتماد نمط **BLoC (Business Logic Component)** لفصل منطق الأعمال عن واجهات المستخدم، مما يضمن أداءً متميزاً وتدفقاً منطقياً للبيانات.
+* **Architecture:** يتبع المشروع مبادئ **Clean Code Architecture**، حيث تم تقسيم الكود إلى طبقات (Data, Domain, Presentation) لسهولة الصيانة والاختبار.
+* **Local Notifications:** دمج نظام إشعارات محلي متطور باستخدام `flutter_local_notifications` لمتابعة حالة الطلبات (Order Tracking) وإرسال العروض التسويقية.
+* **Data Desugaring:** تفعيل خاصية Java 8+ API desugaring لضمان توافقية التطبيق مع إصدارات أندرويد المختلفة.
+* **Navigation:** استخدام نظام تنقل عصري (Custom Navigation Bars) لتسهيل تجربة المستخدم (UX).
+* **UI Components:** تحويل تصاميم **Figma** إلى واجهات برمجية دقيقة باستخدام أدوات مثل `Gap` و `Flutter SVG`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## ✨ المميزات الرئيسية (Key Features)
+
+✅ **نظام إشعارات ذكي:** تنبيهات فورية عند تأكيد الطلب، الشحن، أو التوصيل، بالإضافة إلى إشعارات العروض الخاصة.
+✅ **إدارة متقدمة للسلة:** نظام إضافة وتعديل المنتجات في سلة التسوق مع تحديثات لحظية باستخدام BLoC.
+✅ **بحث وفلترة متطورة:** محرك بحث داخلي يسمح للمستخدمين بالوصول للمنتجات بسرعة ودقة.
+✅ **تصميم متجاوب:** واجهات مستخدم عصرية تتناسب مع مختلف أحجام الشاشات (Responsive Design).
+✅ **هوية بصرية قوية:** تنسيق ألوان متناسق (Black & Orange) يعكس هوية **ALHELAL PRIME**.
+
+---
+
+## 🏗 بنية المشروع (Project Structure)
+
+```text
+lib/
+├── bloc/           # إدارة الحالة (Business Logic)
+├── models/         # نماذج البيانات (Data Models)
+├── screens/        # واجهات المستخدم (UI Screens)
+├── services/       # الخدمات الخارجية (Notifications, API)
+├── theme/          # إعدادات الألوان والثيم
+└── widgets/        # المكونات البرمجية القابلة لإعادة الاستخدام
