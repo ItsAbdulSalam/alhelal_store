@@ -1,328 +1,395 @@
+import 'package:first_store/bloc/profile/profile_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
-class PaymentMethodsScreen extends StatefulWidget {
+class PaymentMethodsScreen extends StatelessWidget {
   const PaymentMethodsScreen({super.key});
 
   @override
-  State<PaymentMethodsScreen> createState() => _PaymentMethodsScreenState();
-}
-
-class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
-  int selectedPaymentIndex = 0;
-  List<Map<String, dynamic>> cards = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCards();
-  }
-
-  // تحميل الكروت من الذاكرة
-  Future<void> _loadCards() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? savedCards = prefs.getString('user_cards');
-    if (savedCards != null) {
-      setState(() {
-        cards = List<Map<String, dynamic>>.from(json.decode(savedCards));
-        isLoading = false;
-      });
-    } else {
-      // كروت افتراضية لأول مرة
-      cards = [
-        {
-          "type": "Visa",
-          "number": "4422 **** **** ****",
-          "expiry": "09/27",
-          "color": 0xFF1A1A1A,
-        },
-        {
-          "type": "MasterCard",
-          "number": "8855 **** **** ****",
-          "expiry": "12/26",
-          "color": 0xFFC5A059,
-        },
-      ];
-      setState(() => isLoading = false);
-    }
-  }
-
-  // حفظ الكروت في الذاكرة
-  Future<void> _saveCards() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_cards', json.encode(cards));
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFBFB),
       appBar: AppBar(
-        title: const Text(
-          "طرق الدفع",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
+        title: const Text('طرق الدفع'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-          : Column(
-              children: [
-                const Gap(20),
-                _buildCardsSlider(),
-                const Gap(30),
-                _buildAddCardButton(),
-                const Spacer(),
-                _buildConfirmButton(),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildCardsSlider() {
-    return SizedBox(
-      height: 230,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: cards.length,
-        itemBuilder: (context, index) {
-          bool isSelected = selectedPaymentIndex == index;
-          return GestureDetector(
-            onTap: () => setState(() => selectedPaymentIndex = index),
-            child: Stack(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: MediaQuery.of(context).size.width * 0.82,
-                  margin: const EdgeInsets.only(left: 15, bottom: 10),
-                  padding: const EdgeInsets.all(25),
-                  decoration: BoxDecoration(
-                    color: Color(cards[index]["color"]),
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: isSelected ? Colors.orange : Colors.transparent,
-                      width: 3,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: BlocBuilder<ProfileBloc, ProfileState>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              const Gap(20),
+              // ── قائمة البطاقات ──
+              SizedBox(
+                height: 220,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: state.paymentCards.length,
+                  itemBuilder: (context, i) {
+                    final card = state.paymentCards[i];
+                    final isSelected = state.selectedCardIndex == i;
+                    return GestureDetector(
+                      onTap: () =>
+                          context.read<ProfileBloc>().add(SelectPaymentCard(i)),
+                      child: Stack(
                         children: [
-                          Text(
-                            cards[index]["type"],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: MediaQuery.of(context).size.width * 0.8,
+                            margin: const EdgeInsets.only(left: 14, bottom: 10),
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Color(card['color'] as int),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.orange
+                                    : Colors.transparent,
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.12),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      card['type'] as String,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.contactless_outlined,
+                                      color: Colors.white54,
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  card['number'] as String,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'ALHELAL PRIME',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    Text(
+                                      card['expiry'] as String,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          const Icon(
-                            Icons.contactless_outlined,
-                            color: Colors.white54,
+                          // زر التعديل
+                          Positioned(
+                            top: 8,
+                            right: 22,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.edit_rounded,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                              onPressed: () =>
+                                  _showCardDialog(context, index: i),
+                            ),
                           ),
                         ],
                       ),
-                      Text(
-                        cards[index]["number"],
-                        style: const TextStyle(
+                    );
+                  },
+                ),
+              ),
+
+              const Gap(24),
+
+              // ── زر إضافة بطاقة ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: GestureDetector(
+                  onTap: () => _showCardDialog(context),
+                  child: Container(
+                    width: double.infinity,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF2A2A2A)
+                            : Colors.grey.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          size: 20,
+                        ),
+                        const Gap(8),
+                        Text(
+                          'إضافة بطاقة جديدة',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.grey[400] : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const Spacer(),
+
+              // ── زر التأكيد ──
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('تم اختيار طريقة الدفع بنجاح'),
+                        backgroundColor: Colors.green.shade700,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: const EdgeInsets.all(16),
+                      ),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withOpacity(0.35),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'تأكيد طريقة الدفع',
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
-                          letterSpacing: 2,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "ALHELAL PRIME",
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            cards[index]["expiry"],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // زر التعديل فوق الكرت
-                Positioned(
-                  top: 10,
-                  right: 25,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.edit,
-                      color: Colors.white70,
-                      size: 20,
                     ),
-                    onPressed: () => _showCardDialog(index: index),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildAddCardButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25),
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 60),
-          side: const BorderSide(color: Colors.grey),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        onPressed: () => _showCardDialog(), // إضافة كرت جديد
-        icon: const Icon(Icons.add_circle_outline, color: Colors.black),
-        label: const Text(
-          "إضافة بطاقة جديدة",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
+  void _showCardDialog(BuildContext context, {int? index}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final state = context.read<ProfileBloc>().state;
 
-  // نافذة الإضافة والتعديل الموحدة
-  void _showCardDialog({int? index}) {
-    TextEditingController numCtrl = TextEditingController(
-      text: index != null ? cards[index]["number"] : "",
+    final numCtrl = TextEditingController(
+      text: index != null ? state.paymentCards[index]['number'] as String : '',
     );
-    TextEditingController expCtrl = TextEditingController(
-      text: index != null ? cards[index]["expiry"] : "",
+    final expCtrl = TextEditingController(
+      text: index != null ? state.paymentCards[index]['expiry'] as String : '',
     );
-    String type = index != null ? cards[index]["type"] : "Visa";
+    String type = index != null
+        ? state.paymentCards[index]['type'] as String
+        : 'Visa';
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) => Padding(
+      builder: (sheetCtx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 25,
-          right: 25,
-          top: 25,
+          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+          left: 24,
+          right: 24,
+          top: 24,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Gap(20),
             Text(
-              index == null ? "إضافة بطاقة" : "تعديل البطاقة",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              index == null ? 'إضافة بطاقة' : 'تعديل البطاقة',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const Gap(20),
             TextField(
               controller: numCtrl,
-              decoration: const InputDecoration(
-                labelText: "رقم البطاقة (مثال: 4422 **** **** ****)",
-                border: OutlineInputBorder(),
+              keyboardType: TextInputType.number,
+              cursorColor: Colors.orange,
+              decoration: InputDecoration(
+                labelText: 'رقم البطاقة',
+                labelStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.credit_card, color: Colors.orange),
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF111111)
+                    : const Color(0xFFF9F9F9),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF2A2A2A)
+                        : const Color(0xFFF0F0F0),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: Colors.orange,
+                    width: 1.5,
+                  ),
+                ),
               ),
             ),
-            const Gap(15),
+            const Gap(14),
             TextField(
               controller: expCtrl,
-              decoration: const InputDecoration(
-                labelText: "تاريخ الانتهاء (MM/YY)",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const Gap(20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                minimumSize: const Size(double.infinity, 55),
-              ),
-              onPressed: () {
-                setState(() {
-                  if (index == null) {
-                    cards.add({
-                      "type": type,
-                      "number": numCtrl.text,
-                      "expiry": expCtrl.text,
-                      "color": 0xFF1A1A1A,
-                    });
-                  } else {
-                    cards[index] = {
-                      "type": type,
-                      "number": numCtrl.text,
-                      "expiry": expCtrl.text,
-                      "color": cards[index]["color"],
-                    };
-                  }
-                });
-                _saveCards();
-                Navigator.pop(context);
-              },
-              child: const Text(
-                "حفظ البطاقة",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              cursorColor: Colors.orange,
+              decoration: InputDecoration(
+                labelText: 'تاريخ الانتهاء (MM/YY)',
+                labelStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(
+                  Icons.calendar_today_outlined,
+                  color: Colors.orange,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF111111)
+                    : const Color(0xFFF9F9F9),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF2A2A2A)
+                        : const Color(0xFFF0F0F0),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: Colors.orange,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
             const Gap(20),
+            GestureDetector(
+              onTap: () {
+                final card = {
+                  'type': type,
+                  'number': numCtrl.text.trim().isEmpty
+                      ? '**** **** **** ****'
+                      : numCtrl.text.trim(),
+                  'expiry': expCtrl.text.trim().isEmpty
+                      ? '--/--'
+                      : expCtrl.text.trim(),
+                  'color': index != null
+                      ? state.paymentCards[index]['color']
+                      : 0xFF1A1A1A,
+                };
+                if (index == null) {
+                  context.read<ProfileBloc>().add(AddPaymentCard(card));
+                } else {
+                  context.read<ProfileBloc>().add(
+                    UpdatePaymentCard(index, card),
+                  );
+                }
+                Navigator.pop(sheetCtx);
+              },
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withOpacity(0.3),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'حفظ البطاقة',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Gap(24),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConfirmButton() {
-    return Padding(
-      padding: const EdgeInsets.all(25),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          minimumSize: const Size(double.infinity, 60),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("تم اختيار طريقة الدفع بنجاح")),
-          );
-          Navigator.pop(context);
-        },
-        child: const Text(
-          "تأكيد طريقة الدفع",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );

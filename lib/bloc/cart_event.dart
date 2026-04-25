@@ -1,28 +1,29 @@
-import 'package:first_store/models/productModel.dart';
+// ═══════════════════════════════════════════════════════════
+//  cart_event.dart
+// ═══════════════════════════════════════════════════════════
+import '../models/productModel.dart';
 
 abstract class CartEvent {
   const CartEvent();
 }
 
-// إضافة منتج (نمرر المنتج والكمية المختارة)
 class AddToCart extends CartEvent {
-  final dynamic product;
+  final Product product;
   final int quantity;
-  const AddToCart({required this.product, required this.quantity});
+  const AddToCart({required this.product, this.quantity = 1});
 }
 
-// تحديث الكمية داخل السلة
 class UpdateQuantity extends CartEvent {
-  final dynamic product;
+  final Product product;
   final bool isIncrement;
   const UpdateQuantity({required this.product, required this.isIncrement});
 }
 
-// حذف منتج
 class RemoveFromCart extends CartEvent {
-  final dynamic product;
+  final Product product;
   const RemoveFromCart({required this.product});
 }
 
-// مسح السلة
-class ClearCart extends CartEvent {}
+class ClearCart extends CartEvent {
+  const ClearCart();
+}

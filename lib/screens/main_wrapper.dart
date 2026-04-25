@@ -1,17 +1,19 @@
-import 'package:first_store/bloc/favorites_bloc.dart';
-import 'package:first_store/bloc/favorites_state.dart';
+// ═══════════════════════════════════════════════════════════
+//  main_wrapper.dart — themed bottom nav, BLoC badges
+// ═══════════════════════════════════════════════════════════
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:line_icons/line_icons.dart';
 
-// استيراد الصفحات والـ Bloc (تأكد من صحة المسارات في مشروعك)
+import '../bloc/cart_bloc.dart';
+import '../bloc/cart_state.dart';
+import '../bloc/favorites_bloc.dart';
+import '../bloc/favorites_state.dart' hide FavoritesUpdated, FavoritesState;
+import '../shared/app_colors.dart';
 import 'home.dart';
 import 'cartPage.dart';
 import 'favorites_screen.dart';
 import 'profile_screen.dart';
-import '../bloc/cart_bloc.dart';
-import '../bloc/cart_state.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -21,107 +23,233 @@ class MainWrapper extends StatefulWidget {
 }
 
 class _MainWrapperState extends State<MainWrapper> {
-  int _selectedIndex = 0;
+  int _index = 0;
 
-  // ترتيب الصفحات
-  final List<Widget> _pages = [
-    const HomeScreen(),
-    const FavoritesScreen(),
-    const CartScreen(),
-    const ProfileScreen(),
+  static const _pages = [
+    HomeScreen(),
+    FavoritesScreen(),
+    CartScreen(),
+    ProfileScreen(),
   ];
+
+  void _onTap(int i) {
+    if (i != _index) {
+      HapticFeedback.selectionClick();
+      setState(() => _index = i);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      // IndexedStack يحافظ على حالة الصفحات ولا يعيد تحميلها
-      body: IndexedStack(index: _selectedIndex, children: _pages),
-      bottomNavigationBar: Container(
+      backgroundColor: c.bg,
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: _BottomNav(
+        selected: _index,
+        onTap: _onTap,
+        c: c,
+      ),
+    );
+  }
+}
+
+// ── Bottom Nav ───────────────────────────────────────────
+class _BottomNav extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onTap;
+  final AppColors c;
+  const _BottomNav(
+      {required this.selected, required this.onTap, required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 8,
+        top: 8,
+        left: 8,
+        right: 8,
+      ),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border(top: BorderSide(color: c.border, width: 0.5)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavItem(
+            icon: Icons.home_rounded,
+            label: 'الرئيسية',
+            index: 0,
+            selected: selected,
+            onTap: onTap,
+            c: c,
+          ),
+          _FavNavItem(selected: selected, onTap: onTap, c: c),
+          _CartNavItem(selected: selected, onTap: onTap, c: c),
+          _NavItem(
+            icon: Icons.person_outline_rounded,
+            label: 'حسابي',
+            index: 3,
+            selected: selected,
+            onTap: onTap,
+            c: c,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Nav Item ─────────────────────────────────────────────
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final int selected;
+  final ValueChanged<int> onTap;
+  final AppColors c;
+  final int badge;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.selected,
+    required this.onTap,
+    required this.c,
+    this.badge = 0,
+  });
+
+  bool get _isSelected => index == selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(blurRadius: 20, color: Colors.black.withOpacity(.1)),
+          color: _isSelected ? c.gold.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon,
+                    color: _isSelected ? c.gold : c.textMuted, size: 22),
+                if (badge > 0)
+                  Positioned(
+                    top: -4,
+                    right: -6,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: c.gold,
+                        shape: BoxShape.circle,
+                        border:
+                            Border.all(color: c.surface, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text('$badge',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                color: _isSelected ? c.gold : c.textMuted,
+                fontSize: 10,
+                fontWeight: _isSelected ? FontWeight.w700 : FontWeight.w400,
+              ),
+              child: Text(label),
+            ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
-          child: GNav(
-            rippleColor: Colors.grey[300]!,
-            hoverColor: Colors.grey[100]!,
-            gap: 8,
-            activeColor: Colors.orange, // لون الهوية الخاص بك
-            iconSize: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            duration: const Duration(milliseconds: 400),
-            tabBackgroundColor: Colors.orange.withOpacity(0.1),
-            color: Colors.black,
-            tabs: [
-              const GButton(
-                icon: Icons.home_rounded, // أيقونة فلاتر الأصلية
-                text: 'الرئيسية',
-              ),
-              GButton(
-                icon: Icons.favorite_border_rounded,
-                text: 'المفضلة',
-                leading: // داخل قائمة الـ items في BottomNavigationBar أو الـ Custom Bar الذي صنعته
-                BlocBuilder<FavoritesBloc, FavoritesState>(
-                  builder: (context, state) {
-                    // نحسب عدد العناصر في المفضلة حالياً
-                    int favoritesCount = 0;
-                    if (state is FavoritesUpdated) {
-                      favoritesCount = state.favoritesList.length;
-                    }
-
-                    return Badge(
-                      isLabelVisible:
-                          favoritesCount > 0, // يظهر فقط إذا كان هناك منتجات
-                      label: Text(favoritesCount.toString()),
-                      backgroundColor: Colors.orange,
-                      child: Icon(
-                        favoritesCount > 0
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: favoritesCount > 0 ? Colors.red : Colors.grey,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              GButton(
-                icon: Icons.shopping_bag_outlined,
-                text: 'السلة',
-                leading: BlocBuilder<CartBloc, CartState>(
-                  builder: (context, state) {
-                    int cartCount = 0;
-                    if (state is CartUpdated) {
-                      cartCount = state.cartItems.length;
-                    }
-                    return Badge(
-                      label: Text('$cartCount'),
-                      isLabelVisible: cartCount > 0,
-                      backgroundColor: Colors.orange,
-                      child: Icon(
-                        Icons.shopping_bag_outlined,
-                        color: _selectedIndex == 2
-                            ? Colors.orange
-                            : Colors.grey[600],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const GButton(icon: Icons.person_outline_rounded, text: 'حسابي'),
-            ],
-            selectedIndex: _selectedIndex,
-            onTabChange: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-          ),
-        ),
       ),
+    );
+  }
+}
+
+// ── Favorites Nav (with BLoC badge) ──────────────────────
+class _FavNavItem extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onTap;
+  final AppColors c;
+  const _FavNavItem(
+      {required this.selected, required this.onTap, required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<FavoritesBloc, FavoritesState>(
+      buildWhen: (p, n) =>
+          (p as FavoritesUpdated).items.length !=
+          (n as FavoritesUpdated).items.length,
+      builder: (_, state) {
+        final count = (state as FavoritesUpdated).items.length;
+        return _NavItem(
+          icon: count > 0
+              ? Icons.favorite_rounded
+              : Icons.favorite_outline_rounded,
+          label: 'المفضلة',
+          index: 1,
+          selected: selected,
+          onTap: onTap,
+          c: c,
+          badge: count,
+        );
+      },
+    );
+  }
+}
+
+// ── Cart Nav (with BLoC badge) ────────────────────────────
+class _CartNavItem extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onTap;
+  final AppColors c;
+  const _CartNavItem(
+      {required this.selected, required this.onTap, required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<CartBloc, CartState>(
+      buildWhen: (p, n) {
+        final pCount =
+            p is CartUpdated ? p.itemCount : 0;
+        final nCount =
+            n is CartUpdated ? n.itemCount : 0;
+        return pCount != nCount;
+      },
+      builder: (_, state) {
+        final count =
+            state is CartUpdated ? state.itemCount : 0;
+        return _NavItem(
+          icon: Icons.shopping_bag_outlined,
+          label: 'السلة',
+          index: 2,
+          selected: selected,
+          onTap: onTap,
+          c: c,
+          badge: count,
+        );
+      },
     );
   }
 }

@@ -1,13 +1,12 @@
 import 'dart:ui';
+import 'package:first_store/screens/professionalSearchBar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
-// استيراد الملفات الضرورية
 import '../bloc/home_bloc.dart';
-// تأكد من وجود هذا الاستيراد
-import '../bloc/cart_bloc.dart'; // ضروري للوصول للسلة
+import '../bloc/cart_bloc.dart';
 import '../widgets/product_grid_view.dart';
 import '../data/categoriesData.dart';
 import '../models/productModel.dart';
@@ -17,13 +16,26 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // نستخدم الـ BlocProvider الموجود في main.dart تلقائياً عبر الـ context
-    return const Scaffold(backgroundColor: Color(0xFFFBFBFB), body: HomeBody());
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFF3E0), Color(0xFFFBFBFB), Colors.white],
+          stops: [0.0, 0.4, 1.0],
+        ),
+      ),
+      child: const Scaffold(
+        backgroundColor: Colors.transparent,
+        body: HomeBody(),
+      ),
+    );
   }
 }
 
 class HomeBody extends StatefulWidget {
   const HomeBody({super.key});
+
   @override
   State<HomeBody> createState() => _HomeBodyState();
 }
@@ -34,7 +46,6 @@ class _HomeBodyState extends State<HomeBody> {
 
   @override
   Widget build(BuildContext context) {
-    // نصيحة: استخدمنا التابع context.read لضمان وصول الأحداث للـ Bloc الصحيح
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -42,7 +53,7 @@ class _HomeBodyState extends State<HomeBody> {
         SliverToBoxAdapter(
           child: Column(
             children: [
-              _buildModernSearchBar(context),
+              const ProfessionalSearchBar(),
               const Gap(10),
               _buildEliteSlider(),
               const Gap(25),
@@ -54,8 +65,6 @@ class _HomeBodyState extends State<HomeBody> {
               _buildSectionHeader("أحدث المنتجات", "الأفضل", () {
                 context.read<HomeBloc>().add(LoadProducts());
               }),
-
-              // منطقة المنتجات الحساسة للتحديث
               BlocBuilder<HomeBloc, HomeState>(
                 builder: (context, state) {
                   if (state is HomeLoading) {
@@ -73,16 +82,13 @@ class _HomeBodyState extends State<HomeBody> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: ProductGridView(
                         products: state.products.cast<Product>(),
-                        // ملاحظة: تأكد أن ProductGridView يستخدم context.read<CartBloc>() داخله
                       ),
                     );
                   }
                   return const SizedBox();
                 },
               ),
-              const Gap(
-                150,
-              ), // زيادة المسافة لضمان عدم تداخل زر "إتمام الدفع" مع البار
+              const Gap(150),
             ],
           ),
         ),
@@ -90,110 +96,152 @@ class _HomeBodyState extends State<HomeBody> {
     );
   }
 
-  // --- شريط التطبيق الملكي (AppBar) ---
+  // ════════════════════════════════════════════
+  //  AppBar الجديد
+  // ════════════════════════════════════════════
   Widget _buildAppBar(BuildContext context) {
     return SliverAppBar(
       floating: true,
       pinned: true,
-      backgroundColor: Colors.white.withOpacity(0.85),
       elevation: 0,
-      centerTitle: true,
+      backgroundColor: Colors.transparent,
       automaticallyImplyLeading: false,
       flexibleSpace: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12), // تأثير زجاجي فخم
-          child: Container(color: Colors.transparent),
-        ),
-      ),
-      title: ShaderMask(
-        shaderCallback: (bounds) => const LinearGradient(
-          colors: [
-            Color(0xFF1A1A1A),
-            Color(0xFFE65100),
-          ], // تدرج بين الأسود والبرتقالي الغامق
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(bounds),
-        child: const Text(
-          "ALHELAL PRIME",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.0,
-            color: Colors.white, // اللون هنا لا يهم بسبب ShaderMask
-          ),
-        ),
-      ),
-      leading: IconButton(
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.notes_rounded, color: Colors.black, size: 22),
-        ),
-        onPressed: () => Scaffold.of(context).openDrawer(),
-      ),
-      actions: [
-        IconButton(
-          onPressed: () {},
-          icon: Container(
-            padding: const EdgeInsets.all(8),
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
             decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.88),
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.black.withOpacity(0.06),
+                  width: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      // ── Brand Title ──
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RichText(
+            text: const TextSpan(
+              children: [
+                TextSpan(
+                  text: 'ALHELAL ',
+                  style: TextStyle(
+                    color: Color(0xFF1A1A1A),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w300,
+                    letterSpacing: 2,
+                  ),
+                ),
+                TextSpan(
+                  text: 'PRIME',
+                  style: TextStyle(
+                    color: Color(0xFFE8960C),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Gap(4),
+          Container(
+            height: 1.5,
+            width: 50,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Color(0xFFE8960C),
+                  Colors.transparent,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ],
+      ),
+      // ── Leading: Menu ──
+      leading: Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: GestureDetector(
+          onTap: () => Scaffold.of(context).openDrawer(),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.black.withOpacity(0.08),
+                width: 0.5,
+              ),
             ),
             child: const Icon(
-              Icons.notifications_none_rounded,
-              color: Colors.black,
-              size: 22,
+              Icons.grid_view_rounded,
+              color: Color(0xFF1A1A1A),
+              size: 18,
             ),
           ),
         ),
-        const Gap(10),
+      ),
+      // ── Actions: Notifications ──
+      actions: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pushNamed(context, '/notifications'),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.black.withOpacity(0.08),
+                    width: 0.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Color(0xFF1A1A1A),
+                  size: 18,
+                ),
+              ),
+            ),
+            // نقطة الإشعار
+            Positioned(
+              top: 9,
+              right: 9,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8960C),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const Gap(6),
       ],
     );
   }
 
-  Widget _buildModernSearchBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: searchController,
-          onChanged: (val) {
-            final state = context.read<HomeBloc>().state;
-            String currentCat = state is HomeLoaded
-                ? state.selectedCategory
-                : "الكل";
-            context.read<HomeBloc>().add(FilterProducts(val, currentCat));
-          },
-          decoration: InputDecoration(
-            hintText: "ما الذي تبحث عنه اليوم؟",
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-            prefixIcon: const Icon(Icons.search_rounded, color: Colors.orange),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 15),
-          ),
-        ),
-      ),
-    );
-  }
+  // ════════════════════════════════════════════
+  //  باقي الكود بدون تغيير
+  // ════════════════════════════════════════════
 
   Widget _buildEliteSlider() {
-    // تأكد أن هذه المسارات مطابقة تماماً لمجلد assets/images/slider/
     final List<Map<String, String>> sliderData = [
       {
         "image": "assets/images/slider/1.jpg",
@@ -255,7 +303,6 @@ class _HomeBodyState extends State<HomeBody> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // عرض الصورة المحلية مع معالج أخطاء احترافي
                 Image.asset(
                   data['image']!,
                   fit: BoxFit.cover,
@@ -280,8 +327,6 @@ class _HomeBodyState extends State<HomeBody> {
                     );
                   },
                 ),
-
-                // تدرج لوني لجعل النص واضحاً
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -294,8 +339,6 @@ class _HomeBodyState extends State<HomeBody> {
                     ),
                   ),
                 ),
-
-                // نصوص السلايدر
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(

@@ -1,58 +1,63 @@
-import 'package:first_store/models/productModel.dart';
+// ═══════════════════════════════════════════════════════════
+//  cart_bloc.dart  — pure BLoC, no global state
+// ═══════════════════════════════════════════════════════════
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../models/productModel.dart';
 import 'cart_event.dart';
 import 'cart_state.dart';
-import '../../models/cart_data.dart';
 
 class CartBloc extends Bloc<CartEvent, CartState> {
-  CartBloc() : super(CartInitial()) {
-    // 1. منطق إضافة منتج جديد أو زيادة كمية منتج موجود
-    on<AddToCart>((event, emit) {
-      final index = globalCartList.indexWhere(
-        (item) => item.product.id == event.product.id,
+  final List<CartItem> _items = [];
+
+  CartBloc() : super(const CartInitial()) {
+    on<AddToCart>(_onAdd);
+    on<UpdateQuantity>(_onUpdate);
+    on<RemoveFromCart>(_onRemove);
+    on<ClearCart>(_onClear);
+  }
+
+  List<CartItem> get items => List.unmodifiable(_items);
+
+  void _onAdd(AddToCart e, Emitter<CartState> emit) {
+    final idx = _items.indexWhere((i) => i.product.id == e.product.id);
+    if (idx != -1) {
+      _items[idx] = CartItem(
+        product: _items[idx].product,
+        quantity: _items[idx].quantity + e.quantity,
       );
-      if (index != -1) {
-        globalCartList[index].quantity += event.quantity;
-      } else {
-        globalCartList.add(
-          CartItem(product: event.product, quantity: event.quantity),
-        );
-      }
-      emit(CartUpdated(List.from(globalCartList)));
-    });
+    } else {
+      _items.add(CartItem(product: e.product, quantity: e.quantity));
+    }
+    emit(CartUpdated(List.from(_items)));
+  }
 
-    // 2. منطق تحديث الكمية (زيادة أو نقصان) من داخل صفحة السلة
-    on<UpdateQuantity>((event, emit) {
-      final index = globalCartList.indexWhere(
-        (item) => item.product.id == event.product.id,
+  void _onUpdate(UpdateQuantity e, Emitter<CartState> emit) {
+    final idx = _items.indexWhere((i) => i.product.id == e.product.id);
+    if (idx == -1) return;
+
+    if (e.isIncrement) {
+      _items[idx] = CartItem(
+        product: _items[idx].product,
+        quantity: _items[idx].quantity + 1,
       );
-      if (index != -1) {
-        if (event.isIncrement) {
-          globalCartList[index].quantity++;
-        } else {
-          if (globalCartList[index].quantity > 1) {
-            globalCartList[index].quantity--;
-          } else {
-            // إذا كانت الكمية 1 وضغط المستخدم على ناقص، يتم حذف المنتج
-            globalCartList.removeAt(index);
-          }
-        }
-        emit(CartUpdated(List.from(globalCartList)));
-      }
-    });
+    } else if (_items[idx].quantity > 1) {
+      _items[idx] = CartItem(
+        product: _items[idx].product,
+        quantity: _items[idx].quantity - 1,
+      );
+    } else {
+      _items.removeAt(idx);
+    }
+    emit(CartUpdated(List.from(_items)));
+  }
 
-    // 3. منطق حذف منتج معين نهائياً عند الضغط على أيقونة السلة (Trash)
-    on<RemoveFromCart>((event, emit) {
-      globalCartList.removeWhere((item) => item.product.id == event.product.id);
-      emit(CartUpdated(List.from(globalCartList)));
-    });
+  void _onRemove(RemoveFromCart e, Emitter<CartState> emit) {
+    _items.removeWhere((i) => i.product.id == e.product.id);
+    emit(CartUpdated(List.from(_items)));
+  }
 
-    // 4. الحل النهائي للخطأ: منطق تصفير السلة بالكامل بعد نجاح الدفع
-    on<ClearCart>((event, emit) {
-      globalCartList.clear(); // مسح كل المحتويات من القائمة العالمية
-      emit(
-        CartUpdated(List.from(globalCartList)),
-      ); // تحديث الواجهة لتعرض "السلة فارغة"
-    });
+  void _onClear(ClearCart e, Emitter<CartState> emit) {
+    _items.clear();
+    emit(CartUpdated(const []));
   }
 }

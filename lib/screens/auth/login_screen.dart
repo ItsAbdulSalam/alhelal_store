@@ -1,8 +1,17 @@
-import 'dart:ui';
 import 'package:first_store/screens/main_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import '../home.dart'; // تأكد من مسار صفحة الهوم لديك
+import 'auth_widgets.dart';
+
+// ═══════════════════════════════════════════════════════════
+//  LoginScreen — BLoC-ready structure
+//
+//  BLoC integration guide:
+//  1. Replace Future.delayed with:
+//     context.read<AuthBloc>().add(LoginRequested(email, password))
+//  2. Wrap body with BlocConsumer<AuthBloc, AuthState>
+//  3. Listen for AuthSuccess → navigate, AuthFailure → show error
+// ═══════════════════════════════════════════════════════════
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,264 +22,245 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _passwordFocus = FocusNode();
+
   bool _isPasswordVisible = false;
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  // ── BLoC: replace this with bloc event dispatch ──────────
+  Future<void> _handleLogin() async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    // TODO: context.read<AuthBloc>().add(LoginRequested(
+    //   email: _emailController.text.trim(),
+    //   password: _passwordController.text,
+    // ));
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainWrapper()),
+    );
+  }
+
+  // ── Validators ───────────────────────────────────────────
+  String? _validateEmail(String? val) {
+    if (val == null || val.trim().isEmpty) return 'البريد الإلكتروني مطلوب';
+    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$').hasMatch(val.trim())) {
+      return 'بريد إلكتروني غير صحيح';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? val) {
+    if (val == null || val.isEmpty) return 'كلمة المرور مطلوبة';
+    if (val.length < 6) return '6 أحرف على الأقل';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
-      backgroundColor: Colors.black, // خلفية سوداء لتناسب الهوية الملكية
-      body: Stack(
-        children: [
-          // 1. خلفية بلمسة ضوئية برتقالية خفيفة
-          Positioned(
-            top: -100,
-            right: -100,
-            child: CircleAvatar(
-              radius: 150,
-              backgroundColor: Colors.orange.withOpacity(0.1),
-            ),
-          ),
+      backgroundColor: AuthColors.bg,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Nav row ──────────────────────────────
+                  const AuthBackButton(),
 
-          // 2. المحتوى الأساسي
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Gap(40),
-                    // زر العودة بتصميم أنيق
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const Gap(40),
+                  const Gap(36),
 
-                    // العنوان
-                    const Text(
-                      "تسجيل الدخول ✨",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Gap(10),
-                    Text(
-                      "استمتع بتجربة تسوق فريدة مع ALHELAL PRIME",
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                    ),
-                    const Gap(50),
+                  // ── Header ───────────────────────────────
+                  const AuthHeader(
+                    title: 'مرحباً بعودتك',
+                    subtitle: 'سجّل دخولك للوصول إلى عروضنا الحصرية',
+                  ),
 
-                    // حقل البريد الإلكتروني
-                    _buildCustomField(
-                      controller: _emailController,
-                      label: "البريد الإلكتروني",
-                      hint: "example@mail.com",
-                      icon: Icons.email_outlined,
-                      validator: (val) =>
-                          val!.contains('@') ? null : "يرجى إدخال بريد صحيح",
-                    ),
-                    const Gap(25),
+                  const Gap(40),
 
-                    // حقل كلمة المرور
-                    _buildCustomField(
-                      controller: _passwordController,
-                      label: "كلمة المرور",
-                      hint: "••••••••",
-                      icon: Icons.lock_outline,
-                      isPassword: true,
-                      obscureText: !_isPasswordVisible,
-                      togglePassword: () => setState(
-                        () => _isPasswordVisible = !_isPasswordVisible,
-                      ),
-                      validator: (val) =>
-                          val!.length < 6 ? "كلمة المرور قصيرة جداً" : null,
-                    ),
+                  // ── Email ────────────────────────────────
+                  AuthField(
+                    controller: _emailController,
+                    label: 'البريد الإلكتروني',
+                    hint: 'example@mail.com',
+                    icon: Icons.alternate_email_rounded,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) =>
+                        FocusScope.of(context).requestFocus(_passwordFocus),
+                    validator: _validateEmail,
+                  ),
 
-                    const Gap(15),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: () {},
-                        child: const Text(
-                          "نسيت كلمة المرور؟",
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontWeight: FontWeight.bold,
-                          ),
+                  const Gap(18),
+
+                  // ── Password ─────────────────────────────
+                  AuthField(
+                    controller: _passwordController,
+                    label: 'كلمة المرور',
+                    hint: '••••••••',
+                    icon: Icons.lock_outline_rounded,
+                    isPassword: true,
+                    isVisible: _isPasswordVisible,
+                    focusNode: _passwordFocus,
+                    textInputAction: TextInputAction.done,
+                    onToggleVisibility: () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible,
+                    ),
+                    onFieldSubmitted: (_) => _handleLogin(),
+                    validator: _validatePassword,
+                  ),
+
+                  const Gap(14),
+
+                  // ── Forgot password ───────────────────────
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () {
+                        // TODO: navigate to forgot password
+                      },
+                      child: const Text(
+                        'نسيت كلمة المرور؟',
+                        style: TextStyle(
+                          color: AuthColors.gold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const Gap(40),
+                  ),
 
-                    // زر الدخول المضيء
-                    _buildLoginButton(),
+                  const Gap(36),
 
-                    const Gap(30),
-                    // رابط إنشاء حساب
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "ليس لديك حساب؟ ",
-                          style: TextStyle(color: Colors.grey[400]),
+                  // ── Login button ──────────────────────────
+                  AuthPrimaryButton(
+                    label: 'تسجيل الدخول',
+                    isLoading: _isLoading,
+                    onTap: _handleLogin,
+                  ),
+
+                  const Gap(28),
+
+                  // ── Divider ───────────────────────────────
+                  const AuthDivider(),
+
+                  const Gap(28),
+
+                  // ── Google button ─────────────────────────
+                  AuthSocialButton(
+                    label: 'المتابعة بحساب Google',
+                    icon: _GoogleIcon(),
+                    onTap: () {
+                      // TODO: Google Sign-In
+                    },
+                  ),
+
+                  const Gap(40),
+
+                  // ── Register link ─────────────────────────
+                  Center(
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                          color: AuthColors.textSecondary,
+                          fontSize: 13,
                         ),
-                        GestureDetector(
-                          onTap: () {
-                            // انتقل لصفحة التسجيل
-                          },
-                          child: const Text(
-                            "إنشاء حساب جديد",
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
+                        children: [
+                          const TextSpan(text: 'ليس لديك حساب؟  '),
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: const Text(
+                                'إنشاء حساب',
+                                style: TextStyle(
+                                  color: AuthColors.gold,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- ودجت بناء الحقول بتصميم Glassmorphism ---
-  Widget _buildCustomField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    bool isPassword = false,
-    bool obscureText = false,
-    VoidCallback? togglePassword,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        const Gap(10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: TextFormField(
-              controller: controller,
-              obscureText: obscureText,
-              validator: validator,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.05),
-                hintText: hint,
-                hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
-                prefixIcon: Icon(icon, color: Colors.orange, size: 22),
-                suffixIcon: isPassword
-                    ? IconButton(
-                        icon: Icon(
-                          obscureText ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
-                        ),
-                        onPressed: togglePassword,
-                      )
-                    : null,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: const BorderSide(
-                    color: Colors.orange,
-                    width: 1.5,
                   ),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: const BorderSide(
-                    color: Colors.redAccent,
-                    width: 1,
-                  ),
-                ),
+                ],
               ),
             ),
           ),
         ),
-      ],
+      ),
     );
+  }
+}
+
+// ── Google Icon (SVG-like, no package needed) ──────────────
+class _GoogleIcon extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 18,
+      height: 18,
+      child: CustomPaint(painter: _GooglePainter()),
+    );
+  }
+}
+
+class _GooglePainter extends CustomPainter {
+  const _GooglePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+
+    // Simplified G — 4 arcs in Google colors
+    final paints = [
+      Paint()..color = const Color(0xFF4285F4), // Blue
+      Paint()..color = const Color(0xFF34A853), // Green
+      Paint()..color = const Color(0xFFFBBC05), // Yellow
+      Paint()..color = const Color(0xFFEA4335), // Red
+    ];
+
+    // Draw colored quadrant circles
+    for (int i = 0; i < 4; i++) {
+      canvas.drawArc(
+        Rect.fromCircle(center: c, radius: r),
+        (i * 1.5708) - 0.3927,
+        1.5708,
+        false,
+        paints[i]
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.5,
+      );
+    }
   }
 
-  // --- زر الدخول المضيء ---
-  Widget _buildLoginButton() {
-    return Container(
-      width: double.infinity,
-      height: 60,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: () {
-          if (_formKey.currentState!.validate()) {
-            // كود تسجيل الدخول الفعلي
-            Navigator.pushReplacementNamed(context, '/main');
-            // أو إذا كنت تستخدم الـ MaterialPageRoute:
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const MainWrapper()),
-            );
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          elevation: 0,
-        ),
-        child: const Text(
-          "تسجيل الدخول",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
+  @override
+  bool shouldRepaint(_) => false;
 }

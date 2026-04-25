@@ -1,24 +1,61 @@
+// ═══════════════════════════════════════════════════════════
+//  favorites_event.dart
+// ═══════════════════════════════════════════════════════════
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'favorites_state.dart';
-import 'favorites_event.dart'; // استدعاء الملف الذي أنشأناه للتو
-import '../../data/favorites_data.dart';
+
+import '../models/productModel.dart';
+
+abstract class FavoritesEvent {
+  const FavoritesEvent();
+}
+
+class ToggleFavorite extends FavoritesEvent {
+  final Product product;
+  const ToggleFavorite({required this.product});
+}
+
+// ═══════════════════════════════════════════════════════════
+//  favorites_state.dart
+// ═══════════════════════════════════════════════════════════
+
+abstract class FavoritesState {
+  const FavoritesState();
+}
+
+class FavoritesUpdated extends FavoritesState {
+  final List<Product> items;
+  final Set<String> ids; // للبحث السريع O(1)
+
+  FavoritesUpdated(List<Product> list)
+      : items = List.unmodifiable(list),
+        ids = list.map((p) => p.id).toSet();
+
+  bool isFavorite(String id) => ids.contains(id);
+
+  const FavoritesUpdated.empty()
+      : items = const [],
+        ids = const {};
+}
+
+// ═══════════════════════════════════════════════════════════
+//  favorites_bloc.dart
+// ═══════════════════════════════════════════════════════════
+
 
 class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
-  FavoritesBloc() : super(FavoritesUpdated(List.from(globalFavoritesList))) {
-    on<ToggleFavorite>((event, emit) {
-      // نستخدم event.product للوصول للمنتج الممرر
-      final bool exists = globalFavoritesList.any(
-        (p) => p.id == event.product.id,
-      );
+  final List<Product> _items = [];
 
-      if (exists) {
-        globalFavoritesList.removeWhere((p) => p.id == event.product.id);
-      } else {
-        globalFavoritesList.add(event.product);
-      }
+  FavoritesBloc() : super(const FavoritesUpdated.empty()) {
+    on<ToggleFavorite>(_onToggle);
+  }
 
-      emit(FavoritesUpdated(List.from(globalFavoritesList)));
-    });
+  void _onToggle(ToggleFavorite e, Emitter<FavoritesState> emit) {
+    final exists = _items.any((p) => p.id == e.product.id);
+    if (exists) {
+      _items.removeWhere((p) => p.id == e.product.id);
+    } else {
+      _items.add(e.product);
+    }
+    emit(FavoritesUpdated(List.from(_items)));
   }
 }
- 
