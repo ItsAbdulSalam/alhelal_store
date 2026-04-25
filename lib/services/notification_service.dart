@@ -80,6 +80,7 @@ class NotificationService {
   }) async {
     await init();
 
+    // ignore: unused_local_variable
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId(type),
