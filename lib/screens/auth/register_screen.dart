@@ -1,14 +1,9 @@
+import 'package:first_store/bloc/Auth/auth_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
 import 'auth_widgets.dart';
-
-// ═══════════════════════════════════════════════════════════
-//  RegisterScreen — BLoC-ready structure
-//
-//  BLoC integration:
-//  1. context.read<AuthBloc>().add(RegisterRequested(...))
-//  2. BlocConsumer for AuthSuccess / AuthFailure states
-// ═══════════════════════════════════════════════════════════
+// المسار المحدث بناءً على الصورة
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -36,7 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // State
   bool _isPasswordVisible = false;
   bool _isConfirmVisible = false;
-  bool _isLoading = false;
   bool _acceptedTerms = false;
 
   @override
@@ -53,27 +47,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // ── BLoC: replace with bloc event ───────────────────────
-  Future<void> _handleRegister() async {
+  void _handleRegister() {
     FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) return;
+
     if (!_acceptedTerms) {
       _showMessage('يرجى الموافقة على الشروط والأحكام');
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    // TODO: context.read<AuthBloc>().add(RegisterRequested(
-    //   name: _nameController.text.trim(),
-    //   email: _emailController.text.trim(),
-    //   phone: _phoneController.text.trim(),
-    //   password: _passwordController.text,
-    // ));
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    _showMessage('تم إنشاء الحساب بنجاح', isSuccess: true);
+    // إرسال الحدث إلى البلوك باستخدام البيانات من الـ controllers
+    context.read<AuthBloc>().add(
+      SignUpRequested(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        fullName: _nameController.text.trim(), // تأكد من وجود الـ Controller
+        phoneNumber: _phoneController.text
+            .trim(), // تأكد من وجود الـ Controller
+      ),
+    );
   }
 
   void _showMessage(String msg, {bool isSuccess = false}) {
@@ -94,226 +87,196 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── Validators ───────────────────────────────────────────
-  String? _validateName(String? val) {
-    if (val == null || val.trim().isEmpty) return 'الاسم مطلوب';
-    if (val.trim().length < 3) return '3 أحرف على الأقل';
-    if (val.trim().split(' ').length < 2) return 'يرجى إدخال الاسم الكامل';
-    return null;
-  }
-
-  String? _validateEmail(String? val) {
-    if (val == null || val.trim().isEmpty) return 'البريد الإلكتروني مطلوب';
-    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$').hasMatch(val.trim())) {
-      return 'بريد إلكتروني غير صحيح';
-    }
-    return null;
-  }
-
-  String? _validatePhone(String? val) {
-    if (val == null || val.trim().isEmpty) return 'رقم الهاتف مطلوب';
-    final digits = val.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 9 || digits.length > 15) return 'رقم هاتف غير صحيح';
-    return null;
-  }
-
-  String? _validatePassword(String? val) {
-    if (val == null || val.isEmpty) return 'كلمة المرور مطلوبة';
-    if (val.length < 8) return '8 أحرف على الأقل';
-    if (!val.contains(RegExp(r'[A-Z]'))) return 'يجب أن تحتوي على حرف كبير';
-    if (!val.contains(RegExp(r'[0-9]'))) return 'يجب أن تحتوي على رقم';
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: AuthColors.bg,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Nav ───────────────────────────────────
-                  const AuthBackButton(),
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is Authenticated) {
+            _showMessage('تم إنشاء الحساب بنجاح', isSuccess: true);
+            // بمجرد النجاح يمكنك توجيه المستخدم للشاشة الرئيسية:
+            // Navigator.pushReplacementNamed(context, '/home');
+          } else if (state is AuthError) {
+            _showMessage(state.message);
+          }
+        },
+        builder: (context, state) {
+          return GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AuthBackButton(),
+                      const Gap(36),
+                      const AuthHeader(
+                        title: 'إنشاء حساب',
+                        subtitle: 'انضم لآلاف العملاء في ALHELAL PRIME',
+                      ),
+                      const Gap(36),
 
-                  const Gap(36),
+                      // Full name
+                      AuthField(
+                        controller: _nameController,
+                        label: 'الاسم الكامل',
+                        hint: 'محمد أحمد',
+                        icon: Icons.person_outline_rounded,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) =>
+                            FocusScope.of(context).requestFocus(_emailFocus),
+                        validator: (val) =>
+                            (val == null || val.isEmpty) ? 'الاسم مطلوب' : null,
+                      ),
+                      const Gap(16),
 
-                  // ── Header ────────────────────────────────
-                  const AuthHeader(
-                    title: 'إنشاء حساب',
-                    subtitle: 'انضم لآلاف العملاء في ALHELAL PRIME',
-                  ),
+                      // Email
+                      AuthField(
+                        controller: _emailController,
+                        label: 'البريد الإلكتروني',
+                        hint: 'example@mail.com',
+                        icon: Icons.alternate_email_rounded,
+                        focusNode: _emailFocus,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) =>
+                            FocusScope.of(context).requestFocus(_phoneFocus),
+                        validator: (val) => (val == null || !val.contains('@'))
+                            ? 'بريد غير صحيح'
+                            : null,
+                      ),
+                      const Gap(16),
 
-                  const Gap(36),
+                      // Phone
+                      AuthField(
+                        controller: _phoneController,
+                        label: 'رقم الهاتف',
+                        hint: '+90 5xx xxx xxxx',
+                        icon: Icons.phone_outlined,
+                        focusNode: _phoneFocus,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) =>
+                            FocusScope.of(context).requestFocus(_passFocus),
+                        validator: (val) => (val == null || val.isEmpty)
+                            ? 'رقم الهاتف مطلوب'
+                            : null,
+                      ),
+                      const Gap(16),
 
-                  // ── Full name ─────────────────────────────
-                  AuthField(
-                    controller: _nameController,
-                    label: 'الاسم الكامل',
-                    hint: 'محمد أحمد',
-                    icon: Icons.person_outline_rounded,
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) =>
-                        FocusScope.of(context).requestFocus(_emailFocus),
-                    validator: _validateName,
-                  ),
-
-                  const Gap(16),
-
-                  // ── Email ──────────────────────────────────
-                  AuthField(
-                    controller: _emailController,
-                    label: 'البريد الإلكتروني',
-                    hint: 'example@mail.com',
-                    icon: Icons.alternate_email_rounded,
-                    focusNode: _emailFocus,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) =>
-                        FocusScope.of(context).requestFocus(_phoneFocus),
-                    validator: _validateEmail,
-                  ),
-
-                  const Gap(16),
-
-                  // ── Phone ──────────────────────────────────
-                  AuthField(
-                    controller: _phoneController,
-                    label: 'رقم الهاتف',
-                    hint: '+90 5xx xxx xxxx',
-                    icon: Icons.phone_outlined,
-                    focusNode: _phoneFocus,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    onFieldSubmitted: (_) =>
-                        FocusScope.of(context).requestFocus(_passFocus),
-                    validator: _validatePhone,
-                  ),
-
-                  const Gap(16),
-
-                  // ── Password ───────────────────────────────
-                  AuthField(
-                    controller: _passwordController,
-                    label: 'كلمة المرور',
-                    hint: '8 أحرف، حرف كبير، ورقم',
-                    icon: Icons.lock_outline_rounded,
-                    isPassword: true,
-                    isVisible: _isPasswordVisible,
-                    focusNode: _passFocus,
-                    textInputAction: TextInputAction.next,
-                    onToggleVisibility: () => setState(
-                      () => _isPasswordVisible = !_isPasswordVisible,
-                    ),
-                    onFieldSubmitted: (_) =>
-                        FocusScope.of(context).requestFocus(_confirmFocus),
-                    validator: _validatePassword,
-                  ),
-
-                  const Gap(10),
-
-                  // ── Password strength ──────────────────────
-                  _PasswordStrength(controller: _passwordController),
-
-                  const Gap(16),
-
-                  // ── Confirm password ───────────────────────
-                  AuthField(
-                    controller: _confirmController,
-                    label: 'تأكيد كلمة المرور',
-                    hint: '••••••••',
-                    icon: Icons.lock_reset_rounded,
-                    isPassword: true,
-                    isVisible: _isConfirmVisible,
-                    focusNode: _confirmFocus,
-                    textInputAction: TextInputAction.done,
-                    onToggleVisibility: () =>
-                        setState(() => _isConfirmVisible = !_isConfirmVisible),
-                    onFieldSubmitted: (_) => _handleRegister(),
-                    validator: (val) {
-                      if (val == null || val.isEmpty) {
-                        return 'تأكيد كلمة المرور مطلوب';
-                      }
-                      if (val != _passwordController.text) {
-                        return 'كلمتا المرور غير متطابقتين';
-                      }
-                      return null;
-                    },
-                  ),
-
-                  const Gap(24),
-
-                  // ── Terms checkbox ─────────────────────────
-                  _TermsRow(
-                    accepted: _acceptedTerms,
-                    onTap: () =>
-                        setState(() => _acceptedTerms = !_acceptedTerms),
-                  ),
-
-                  const Gap(32),
-
-                  // ── Register button ────────────────────────
-                  AuthPrimaryButton(
-                    label: 'إنشاء الحساب',
-                    isLoading: _isLoading,
-                    onTap: _handleRegister,
-                  ),
-
-                  const Gap(32),
-
-                  // ── Login link ─────────────────────────────
-                  Center(
-                    child: RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          color: AuthColors.textSecondary,
-                          fontSize: 13,
+                      // Password
+                      AuthField(
+                        controller: _passwordController,
+                        label: 'كلمة المرور',
+                        hint: '8 أحرف على الأقل',
+                        icon: Icons.lock_outline_rounded,
+                        isPassword: true,
+                        isVisible: _isPasswordVisible,
+                        focusNode: _passFocus,
+                        textInputAction: TextInputAction.next,
+                        onToggleVisibility: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
                         ),
-                        children: [
-                          const TextSpan(text: 'لديك حساب؟  '),
-                          WidgetSpan(
-                            child: GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: const Text(
-                                'تسجيل الدخول',
-                                style: TextStyle(
-                                  color: AuthColors.gold,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
+                        onFieldSubmitted: (_) =>
+                            FocusScope.of(context).requestFocus(_confirmFocus),
+                        validator: (val) => (val == null || val.length < 8)
+                            ? '8 أحرف على الأقل'
+                            : null,
+                      ),
+                      const Gap(10),
+
+                      _PasswordStrength(controller: _passwordController),
+                      const Gap(16),
+
+                      // Confirm password
+                      AuthField(
+                        controller: _confirmController,
+                        label: 'تأكيد كلمة المرور',
+                        hint: '••••••••',
+                        icon: Icons.lock_reset_rounded,
+                        isPassword: true,
+                        isVisible: _isConfirmVisible,
+                        focusNode: _confirmFocus,
+                        textInputAction: TextInputAction.done,
+                        onToggleVisibility: () => setState(
+                          () => _isConfirmVisible = !_isConfirmVisible,
+                        ),
+                        onFieldSubmitted: (_) => _handleRegister(),
+                        validator: (val) {
+                          if (val == null || val.isEmpty)
+                            return 'تأكيد كلمة المرور مطلوب';
+                          if (val != _passwordController.text)
+                            return 'كلمتا المرور غير متطابقتين';
+                          return null;
+                        },
+                      ),
+                      const Gap(24),
+
+                      _TermsRow(
+                        accepted: _acceptedTerms,
+                        onTap: () =>
+                            setState(() => _acceptedTerms = !_acceptedTerms),
+                      ),
+                      const Gap(32),
+
+                      // Register button
+                      AuthPrimaryButton(
+                        label: 'إنشاء الحساب',
+                        isLoading: state is AuthLoading,
+                        onTap: _handleRegister,
+                      ),
+                      const Gap(32),
+
+                      // Login link
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                color: AuthColors.textSecondary,
+                                fontSize: 13,
                               ),
+                              children: [
+                                TextSpan(text: 'لديك حساب؟  '),
+                                TextSpan(
+                                  text: 'تسجيل الدخول',
+                                  style: TextStyle(
+                                    color: AuthColors.gold,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════
-//  Password Strength Indicator
+//  Helper Widgets
 // ══════════════════════════════════════════════════════════
+
 class _PasswordStrength extends StatefulWidget {
   final TextEditingController controller;
   const _PasswordStrength({required this.controller});
-
   @override
   State<_PasswordStrength> createState() => _PasswordStrengthState();
 }
@@ -325,75 +288,36 @@ class _PasswordStrengthState extends State<_PasswordStrength> {
     widget.controller.addListener(() => setState(() {}));
   }
 
-  int get _score {
-    final p = widget.controller.text;
-    int s = 0;
-    if (p.length >= 8) s++;
-    if (p.contains(RegExp(r'[A-Z]'))) s++;
-    if (p.contains(RegExp(r'[0-9]'))) s++;
-    if (p.contains(RegExp(r'[!@#\$%^&*]'))) s++;
-    return s;
-  }
-
   @override
   Widget build(BuildContext context) {
     final pass = widget.controller.text;
     if (pass.isEmpty) return const SizedBox.shrink();
-
-    final s = _score.clamp(0, 4);
-    final labels = ['ضعيفة', 'مقبولة', 'جيدة', 'قوية', 'ممتازة'];
-    final colors = [
-      AuthColors.error,
-      const Color(0xFFD97706),
-      const Color(0xFFCA8A04),
-      const Color(0xFF16A34A),
-      const Color(0xFF15803D),
-    ];
+    int score = 0;
+    if (pass.length >= 8) score++;
+    if (pass.contains(RegExp(r'[A-Z]'))) score++;
+    if (pass.contains(RegExp(r'[0-9]'))) score++;
 
     return Row(
-      children: [
-        // 4 bars
-        ...List.generate(4, (i) {
-          return Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
-              height: 3,
-              decoration: BoxDecoration(
-                color: i < s ? colors[s] : AuthColors.border,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          );
-        }),
-
-        const SizedBox(width: 10),
-
-        // Label
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            labels[s],
-            key: ValueKey(s),
-            style: TextStyle(
-              color: colors[s],
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+      children: List.generate(
+        4,
+        (i) => Expanded(
+          child: Container(
+            height: 3,
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: i < score ? Colors.green : Colors.grey[300],
+              borderRadius: BorderRadius.circular(3),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════
-//  Terms Row
-// ══════════════════════════════════════════════════════════
 class _TermsRow extends StatelessWidget {
   final bool accepted;
   final VoidCallback onTap;
-
   const _TermsRow({required this.accepted, required this.onTap});
 
   @override
@@ -402,50 +326,16 @@ class _TermsRow extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Custom checkbox
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.only(top: 1),
-            decoration: BoxDecoration(
-              color: accepted ? AuthColors.gold : Colors.transparent,
-              border: Border.all(
-                color: accepted ? AuthColors.gold : AuthColors.border,
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: accepted
-                ? const Icon(Icons.check_rounded, color: Colors.white, size: 13)
-                : null,
+          Icon(
+            accepted ? Icons.check_box : Icons.check_box_outline_blank,
+            color: AuthColors.gold,
           ),
-
-          const SizedBox(width: 10),
-
-          // Text
-          Expanded(
-            child: RichText(
-              text: const TextSpan(
-                style: TextStyle(
-                  color: AuthColors.textSecondary,
-                  fontSize: 12,
-                  height: 1.6,
-                ),
-                children: [
-                  TextSpan(text: 'أوافق على '),
-                  TextSpan(
-                    text: 'شروط الاستخدام',
-                    style: TextStyle(
-                      color: AuthColors.gold,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  TextSpan(text: ' وسياسة الخصوصية'),
-                ],
-              ),
+          const Gap(10),
+          const Expanded(
+            child: Text(
+              'أوافق على شروط الاستخدام وسياسة الخصوصية',
+              style: TextStyle(color: AuthColors.textSecondary, fontSize: 12),
             ),
           ),
         ],

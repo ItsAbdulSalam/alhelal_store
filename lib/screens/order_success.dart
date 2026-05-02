@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
-import '../bloc/cart_bloc.dart';
-import '../bloc/cart_event.dart';
+import '../shared/app_colors.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
   final double totalPrice;
@@ -10,36 +8,101 @@ class OrderSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // استخدام AppColors للحفاظ على تناسق التصميم مع باقي التطبيق
+    final c = AppColors.of(context);
+
     return Scaffold(
+      backgroundColor: c.bg,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(25),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 100),
-              const Gap(20),
-              const Text("تم الطلب بنجاح!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const Gap(20),
+              // أيقونة النجاح بتصميم جذاب
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.green,
+                  size: 100,
+                ),
+              ),
+              const Gap(30),
+              Text(
+                "تم الطلب بنجاح!",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: c.textPrimary,
+                ),
+              ),
+              const Gap(10),
+              Text(
+                "شكراً لثقتك بنا، طلبك الآن قيد التنفيذ",
+                style: TextStyle(fontSize: 14, color: c.textSecondary),
+              ),
+              const Gap(30),
+
+              // ملخص الدفع السريع
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: c.border, width: 0.5),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("المبلغ الإجمالي المدفوع:"),
-                    Text("\$${totalPrice.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                    Text(
+                      "المبلغ الإجمالي المدفوع",
+                      style: TextStyle(color: c.textSecondary, fontSize: 13),
+                    ),
+                    Text(
+                      "\$${totalPrice.toStringAsFixed(2)}",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: c.gold, // استخدام لون الذهب الخاص ببراند الحلال
+                        fontSize: 18,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Gap(40),
+              const Gap(50),
+
+              // زر العودة للرئيسية
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: c.gold,
+                  minimumSize: const Size(double.infinity, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 0,
+                ),
                 onPressed: () {
-                  context.read<CartBloc>().add(ClearCart()); // تصفير السلة
-                  Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+                  // العودة للشاشة الرئيسية وتصفير مسار الملاحة
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/main',
+                    (route) => false,
+                  );
                 },
-                child: const Text("العودة للرئيسية"),
-              )
+                child: const Text(
+                  "العودة للرئيسية",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

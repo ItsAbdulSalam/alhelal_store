@@ -1,13 +1,19 @@
-/* import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:intl/intl.dart';
 
 class OrderTrackingScreen extends StatelessWidget {
-  const OrderTrackingScreen({super.key});
+  // إضافة orderData لاستقبال بيانات الطلب الحقيقية
+  final Map<String, dynamic> orderData;
+
+  const OrderTrackingScreen({super.key, required this.orderData});
 
   @override
   Widget build(BuildContext context) {
+    // استخراج الحالة الحالية للطلب لتحديد خطوات التتبع
+    String status = orderData['status'] ?? 'قيد التنفيذ';
+
     return Scaffold(
-      // التدرج اللوني الموحد لمشروع Alhelal Prime
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -29,9 +35,9 @@ class OrderTrackingScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildOrderHeader(),
+                    _buildOrderHeader(status),
                     const Gap(25),
-                    _buildTrackingTimeline(),
+                    _buildTrackingTimeline(status),
                     const Gap(30),
                     _buildDeliveryInforCard(),
                     const Gap(40),
@@ -71,7 +77,11 @@ class OrderTrackingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderHeader() {
+  Widget _buildOrderHeader(String status) {
+    // عرض أول 8 أحرف من الـ Order ID
+    String displayId =
+        orderData['orderId']?.toString().substring(0, 8).toUpperCase() ?? "N/A";
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -88,17 +98,20 @@ class OrderTrackingScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 "رقم التتبع",
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
-              Gap(5),
+              const Gap(5),
               Text(
-                "#HP-992834",
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                "#HP-$displayId",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
@@ -108,9 +121,9 @@ class OrderTrackingScreen extends StatelessWidget {
               color: Colors.orange.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
-              "جاري التوصيل",
-              style: TextStyle(
+            child: Text(
+              status,
+              style: const TextStyle(
                 color: Colors.orange,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
@@ -122,7 +135,13 @@ class OrderTrackingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTrackingTimeline() {
+  Widget _buildTrackingTimeline(String status) {
+    // منطق بسيط لتحديد الخطوات المكتملة بناءً على الحالة في Firebase
+    bool isConfirmed = true; // مؤكد بمجرد الدفع
+    bool isProcessed = status == "قيد التوصيل" || status == "تم التسليم";
+    bool isShipped = status == "قيد التوصيل" || status == "تم التسليم";
+    bool isDelivered = status == "تم التسليم";
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -134,29 +153,29 @@ class OrderTrackingScreen extends StatelessWidget {
           _buildStep(
             Icons.check_circle,
             "تم تأكيد الطلب",
-            "اليوم، 10:30 ص",
-            true,
+            "تم استلام الدفعة بنجاح",
+            isConfirmed,
             true,
           ),
           _buildStep(
             Icons.inventory_2,
             "تم تجهيز الشحنة",
-            "اليوم، 12:45 م",
-            true,
+            isProcessed ? "تم تغليف المنتجات" : "جاري التجهيز في المستودع",
+            isProcessed,
             true,
           ),
           _buildStep(
             Icons.local_shipping,
             "في الطريق إليك",
-            "قريباً",
-            false,
+            isShipped ? "الشحنة مع المندوب" : "بانتظار خروج الشحنة",
+            isShipped,
             true,
           ),
           _buildStep(
             Icons.door_front_door,
             "تم التسليم",
-            "متوقع غداً",
-            false,
+            isDelivered ? "تم التسليم بنجاح" : "متوقع وصولها قريباً",
+            isDelivered,
             false,
           ),
         ],
@@ -216,6 +235,12 @@ class OrderTrackingScreen extends StatelessWidget {
   }
 
   Widget _buildDeliveryInforCard() {
+    // الحصول على اسم المستخدم من بيانات الطلب المرفوعة
+    String addressTitle =
+        orderData['address']?['title_ar'] ??
+        orderData['address']?['title'] ??
+        "العنوان المختار";
+
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -227,30 +252,32 @@ class OrderTrackingScreen extends StatelessWidget {
           const CircleAvatar(
             radius: 22,
             backgroundColor: Colors.orange,
-            child: Icon(Icons.person, color: Colors.white),
+            child: Icon(Icons.location_on, color: Colors.white, size: 20),
           ),
           const Gap(15),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "المندوب المسؤول",
+                const Text(
+                  "وجهة التوصيل",
                   style: TextStyle(color: Colors.white60, fontSize: 11),
                 ),
                 Text(
-                  "محمد علي",
-                  style: TextStyle(
+                  addressTitle,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.phone_in_talk_rounded, color: Colors.orange),
+            onPressed: () {}, // يمكن ربطه لفتح الخريطة لاحقاً
+            icon: const Icon(Icons.map_outlined, color: Colors.orange),
           ),
         ],
       ),
@@ -267,4 +294,3 @@ class OrderTrackingScreen extends StatelessWidget {
     );
   }
 }
- */

@@ -8,6 +8,12 @@ class SelectAddress extends AddressEvent {
 }
 
 class AddAddress extends AddressEvent {
-  final Map<String, String> newAddress;
-  AddAddress(this.newAddress);
+  final String title;
+  final String desc;
+  AddAddress({required this.title, required this.desc});
+}
+
+class DeleteAddress extends AddressEvent {
+  final String addressId;
+  DeleteAddress(this.addressId);
 }

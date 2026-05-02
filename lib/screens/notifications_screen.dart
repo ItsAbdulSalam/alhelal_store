@@ -6,8 +6,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // جلب الإشعارات فور فتح الصفحة لضمان مزامنة البيانات مع Firestore
+    context.read<NotificationsBloc>().add(LoadNotifications());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,32 +48,38 @@ class NotificationsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // زر "قراءة الكل" يظهر فقط في حال وجود إشعارات غير مقروءة
           BlocBuilder<NotificationsBloc, NotificationsState>(
-            buildWhen: (prev, curr) =>
-                prev.unreadCount != curr.unreadCount,
             builder: (context, state) {
-              if (state.unreadCount == 0) {
+              if (state.notifications.isEmpty || state.unreadCount == 0) {
                 return const SizedBox.shrink();
               }
+
               return TextButton(
-                onPressed: () => context
-                    .read<NotificationsBloc>()
-                    .add(const MarkAllAsRead()),
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  context.read<NotificationsBloc>().add(MarkAllAsRead());
+                },
                 child: Text(
                   'قراءة الكل',
                   style: TextStyle(
                     color: c.gold,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               );
             },
           ),
+          const Gap(10),
         ],
       ),
       body: BlocBuilder<NotificationsBloc, NotificationsState>(
         builder: (context, state) {
+          if (state.isLoading && state.notifications.isEmpty) {
+            return Center(child: CircularProgressIndicator(color: c.gold));
+          }
+
           if (state.notifications.isEmpty) {
             return _EmptyState(c: c);
           }
@@ -87,14 +105,12 @@ class NotificationsScreen extends StatelessWidget {
                       style: TextStyle(
                         color: c.textMuted,
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
-                  ...group.items.map(
-                    (n) => _NotificationTile(notif: n, c: c),
-                  ),
+                  ...group.items.map((n) => _NotificationTile(notif: n, c: c)),
                 ],
               );
             },
@@ -113,9 +129,9 @@ class NotificationsScreen extends StatelessWidget {
     final older = <AppNotification>[];
 
     for (final n in items) {
-      if (_sameDay(n.createdAt, now)) {
+      if (_isSameDay(n.createdAt, now)) {
         today.add(n);
-      } else if (_sameDay(n.createdAt, yesterday)) {
+      } else if (_isSameDay(n.createdAt, yesterday)) {
         yest.add(n);
       } else {
         older.add(n);
@@ -129,18 +145,133 @@ class NotificationsScreen extends StatelessWidget {
     ];
   }
 
-  bool _sameDay(DateTime a, DateTime b) =>
+  bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-// ── Group Model ──────────────────────────────────────────
+class _NotificationTile extends StatelessWidget {
+  final AppNotification notif;
+  final AppColors c;
+  const _NotificationTile({required this.notif, required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key(notif.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerLeft, // تم التعديل ليتناسب مع اتجاه السحب
+        padding: const EdgeInsets.only(left: 20),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.redAccent,
+        ),
+      ),
+      onDismissed: (_) {
+        HapticFeedback.lightImpact();
+        context.read<NotificationsBloc>().add(DeleteNotification(notif.id));
+      },
+      child: InkWell(
+        onTap: () {
+          if (!notif.isRead) {
+            context.read<NotificationsBloc>().add(MarkAsRead(notif.id));
+          }
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: notif.isRead ? c.surface : c.gold.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: notif.isRead ? c.border : c.gold.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: notif.color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(notif.icon, color: notif.color, size: 20),
+              ),
+              const Gap(14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            notif.title,
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontWeight: notif.isRead
+                                  ? FontWeight.w600
+                                  : FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        if (!notif.isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: c.gold,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const Gap(6),
+                    Text(
+                      notif.body,
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                    const Gap(10),
+                    Text(
+                      notif.timeAgo,
+                      style: TextStyle(
+                        color: c.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NotifGroup {
   final String label;
   final List<AppNotification> items;
   const _NotifGroup(this.label, this.items);
 }
 
-// ── Empty State ──────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   final AppColors c;
   const _EmptyState({required this.c});
@@ -154,167 +285,18 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.notifications_none_rounded,
             size: 72,
-            color: c.textMuted,
+            color: c.textMuted.withOpacity(0.3),
           ),
           const Gap(16),
           Text(
-            'لا توجد إشعارات',
+            'لا توجد إشعارات حالياً',
             style: TextStyle(
               color: c.textSecondary,
               fontSize: 16,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
-          ),
-          const Gap(8),
-          Text(
-            'ستظهر هنا إشعارات طلباتك وعروضك',
-            style: TextStyle(color: c.textMuted, fontSize: 13),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Notification Tile ────────────────────────────────────
-class _NotificationTile extends StatefulWidget {
-  final AppNotification notif;
-  final AppColors c;
-  const _NotificationTile({required this.notif, required this.c});
-
-  @override
-  State<_NotificationTile> createState() => _NotificationTileState();
-}
-
-class _NotificationTileState extends State<_NotificationTile> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final n = widget.notif;
-    final c = widget.c;
-
-    return Dismissible(
-      key: Key(n.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: c.error,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: Colors.white,
-          size: 22,
-        ),
-      ),
-      onDismissed: (_) {
-        HapticFeedback.lightImpact();
-        context
-            .read<NotificationsBloc>()
-            .add(DeleteNotification(n.id));
-      },
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          if (!n.isRead) {
-            context
-                .read<NotificationsBloc>()
-                .add(MarkAsRead(n.id));
-          }
-        },
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.98 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: n.isRead
-                  ? c.surface
-                  : c.gold.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: n.isRead
-                    ? c.border
-                    : c.gold.withOpacity(0.25),
-                width: 0.5,
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // أيقونة
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: n.color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(n.icon, color: n.color, size: 18),
-                ),
-                const Gap(12),
-                // النص
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              n.title,
-                              style: TextStyle(
-                                color: c.textPrimary,
-                                fontWeight: n.isRead
-                                    ? FontWeight.w500
-                                    : FontWeight.w700,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          if (!n.isRead)
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: c.gold,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const Gap(4),
-                      Text(
-                        n.body,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
-                      const Gap(6),
-                      Text(
-                        n.timeAgo,
-                        style: TextStyle(
-                          color: c.textMuted,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

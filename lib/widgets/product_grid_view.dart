@@ -127,7 +127,7 @@ class _ProductCardState extends State<ProductCard> {
                         child: Image.asset(
                           widget.product.image,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorBuilder: (_, _, _) => Icon(
                               Icons.image_outlined,
                               color: c.textMuted,
                               size: 32),

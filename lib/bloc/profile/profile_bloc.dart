@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart'; // أضف هذا
+import 'package:firebase_auth/firebase_auth.dart'; // أضف هذا
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -6,6 +8,10 @@ part 'profile_event.dart';
 part 'profile_state.dart';
 
 class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
+  // تعريف الـ Firestore و Auth
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   ProfileBloc() : super(const ProfileState()) {
     on<LoadProfile>(_onLoad);
     on<UpdateProfile>(_onUpdate);
@@ -16,75 +22,97 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     on<SelectPaymentCard>(_onSelectCard);
   }
 
-  // ── تحميل البيانات ──────────────────────────────────────
+  // ── تحميل البيانات من Firestore ──────────────────────────
   Future<void> _onLoad(LoadProfile e, Emitter<ProfileState> emit) async {
     emit(state.copyWith(status: ProfileStatus.loading));
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final user = _auth.currentUser;
+      if (user == null) return;
 
-      // بيانات المستخدم
-      final name = prefs.getString('user_name') ?? 'عبد السلام الهلال';
-      final email = prefs.getString('user_email') ?? 'abdulsalam@gmail.com';
-      final phone = prefs.getString('user_phone') ?? '+90 5xx xxx xx xx';
+      // جلب البيانات من Firestore
+      final doc = await _firestore.collection('users').doc(user.uid).get();
 
-      // الإشعارات
-      final notifJson = prefs.getString('notifications');
-      final notifications = notifJson != null
-          ? List<Map<String, dynamic>>.from(json.decode(notifJson))
-          : _defaultNotifications();
+      if (doc.exists) {
+        final data = doc.data()!;
 
-      // بطاقات الدفع
-      final cardsJson = prefs.getString('user_cards');
-      final cards = cardsJson != null
-          ? List<Map<String, dynamic>>.from(json.decode(cardsJson))
-          : _defaultCards();
+        // جلب الإشعارات والبطاقات (محلياً حالياً أو يمكنك نقلها لـ Firestore لاحقاً)
+        final prefs = await SharedPreferences.getInstance();
+        final notifJson = prefs.getString('notifications');
+        final cardsJson = prefs.getString('user_cards');
 
-      emit(state.copyWith(
-        status: ProfileStatus.loaded,
-        name: name,
-        email: email,
-        phone: phone,
-        notifications: notifications,
-        paymentCards: cards,
-      ));
-    } catch (_) {
-      emit(state.copyWith(
-        status: ProfileStatus.error,
-        errorMessage: 'فشل تحميل البيانات',
-      ));
+        emit(
+          state.copyWith(
+            status: ProfileStatus.loaded,
+            name: data['fullName'] ?? 'عبد السلام الهلال',
+            email: data['email'] ?? user.email,
+            phone: data['phoneNumber'] ?? '',
+            notifications: notifJson != null
+                ? List<Map<String, dynamic>>.from(json.decode(notifJson))
+                : _defaultNotifications(),
+            paymentCards: cardsJson != null
+                ? List<Map<String, dynamic>>.from(json.decode(cardsJson))
+                : _defaultCards(),
+          ),
+        );
+      }
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: ProfileStatus.error,
+          errorMessage: 'فشل تحميل البيانات من السحاب',
+        ),
+      );
     }
   }
 
-  // ── تحديث البيانات ──────────────────────────────────────
+  // ── تحديث البيانات في Firestore ──────────────────────────
   Future<void> _onUpdate(UpdateProfile e, Emitter<ProfileState> emit) async {
     emit(state.copyWith(status: ProfileStatus.saving));
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_name', e.name);
-      await prefs.setString('user_email', e.email);
-      await prefs.setString('user_phone', e.phone);
+      final user = _auth.currentUser;
+      if (user == null) throw Exception("المستخدم غير مسجل");
 
-      emit(state.copyWith(
-        status: ProfileStatus.loaded,
-        name: e.name,
-        email: e.email,
-        phone: e.phone,
-        isSaved: true,
-      ));
-      // نرجع isSaved لـ false بعد ثانية
+      // التحديث في Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'fullName': e.name,
+        'email': e.email,
+        'phoneNumber': e.phone,
+      });
+
+      // اختياري: تحديث الإيميل في نظام الحماية أيضاً إذا تغير
+      if (e.email != user.email) {
+        // ملاحظة: يتطلب إعادة تسجيل دخول أحياناً
+        // await user.updateEmail(e.email);
+      }
+
+      emit(
+        state.copyWith(
+          status: ProfileStatus.loaded,
+          name: e.name,
+          email: e.email,
+          phone: e.phone,
+          isSaved: true,
+        ),
+      );
+
+      // نرجع isSaved لـ false لكي لا تتكرر الرسالة
       await Future.delayed(const Duration(seconds: 1));
       emit(state.copyWith(isSaved: false));
-    } catch (_) {
-      emit(state.copyWith(
-        status: ProfileStatus.error,
-        errorMessage: 'فشل حفظ البيانات',
-      ));
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: ProfileStatus.error,
+          errorMessage: 'فشل حفظ البيانات في السحاب',
+        ),
+      );
     }
   }
 
-  // ── الإشعارات ────────────────────────────────────────────
+  // ── الإشعارات (كما هي حالياً) ────────────────────────────
   Future<void> _onMarkAll(
-      MarkAllNotificationsRead e, Emitter<ProfileState> emit) async {
+    MarkAllNotificationsRead e,
+    Emitter<ProfileState> emit,
+  ) async {
     final updated = state.notifications
         .map((n) => {...n, 'isRead': true})
         .toList();
@@ -93,23 +121,26 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   }
 
   Future<void> _onToggleRead(
-      ToggleNotificationRead e, Emitter<ProfileState> emit) async {
+    ToggleNotificationRead e,
+    Emitter<ProfileState> emit,
+  ) async {
     final updated = List<Map<String, dynamic>>.from(state.notifications);
     updated[e.index] = {...updated[e.index], 'isRead': true};
     await _saveNotifications(updated);
     emit(state.copyWith(notifications: updated));
   }
 
-  // ── بطاقات الدفع ─────────────────────────────────────────
-  Future<void> _onAddCard(
-      AddPaymentCard e, Emitter<ProfileState> emit) async {
+  // ── بطاقات الدفع (كما هي حالياً) ─────────────────────────
+  Future<void> _onAddCard(AddPaymentCard e, Emitter<ProfileState> emit) async {
     final updated = [...state.paymentCards, e.card];
     await _saveCards(updated);
     emit(state.copyWith(paymentCards: updated));
   }
 
   Future<void> _onUpdateCard(
-      UpdatePaymentCard e, Emitter<ProfileState> emit) async {
+    UpdatePaymentCard e,
+    Emitter<ProfileState> emit,
+  ) async {
     final updated = List<Map<String, dynamic>>.from(state.paymentCards);
     updated[e.index] = e.card;
     await _saveCards(updated);
@@ -132,44 +163,22 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   }
 
   List<Map<String, dynamic>> _defaultNotifications() => [
-        {
-          'title': 'تم تأكيد طلبك!',
-          'body': 'طلبك رقم #ALH-202499 قيد التجهيز الآن.',
-          'time': 'منذ دقيقتين',
-          'icon': 'check',
-          'color': 0xFF4CAF50,
-          'isRead': false,
-        },
-        {
-          'title': 'عرض خاص لفترة محدودة',
-          'body': 'خصم 20% على جميع ملحقات آيفون 15. كود: ALHELAL20',
-          'time': 'منذ ساعتين',
-          'icon': 'offer',
-          'color': 0xFFFF8C00,
-          'isRead': false,
-        },
-        {
-          'title': 'تم تحديث حالة الطلب',
-          'body': 'طلبك السابق تم تسليمه بنجاح.',
-          'time': 'أمس',
-          'icon': 'delivery',
-          'color': 0xFF2196F3,
-          'isRead': true,
-        },
-      ];
+    {
+      'title': 'مرحباً بك يا عبد السلام!',
+      'body': 'نحن سعداء بانضمامك لـ ALHELAL PRIME.',
+      'time': 'الآن',
+      'icon': 'check',
+      'color': 0xFF4CAF50,
+      'isRead': false,
+    },
+  ];
 
   List<Map<String, dynamic>> _defaultCards() => [
-        {
-          'type': 'Visa',
-          'number': '4422 **** **** ****',
-          'expiry': '09/27',
-          'color': 0xFF1A1A1A,
-        },
-        {
-          'type': 'MasterCard',
-          'number': '8855 **** **** ****',
-          'expiry': '12/26',
-          'color': 0xFFC5A059,
-        },
-      ];
+    {
+      'type': 'Visa',
+      'number': '4422 **** **** ****',
+      'expiry': '09/27',
+      'color': 0xFF1A1A1A,
+    },
+  ];
 }

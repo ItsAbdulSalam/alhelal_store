@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:first_store/bloc/cart_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
@@ -36,6 +39,7 @@ class OrderSummaryScreen extends StatelessWidget {
       ),
       body: BlocBuilder<CartBloc, CartState>(
         builder: (context, cartState) {
+          // تصحيح: الحصول على العناصر من حالة الـ Bloc مباشرة
           final items = cartState is CartUpdated ? cartState.cartItems : [];
 
           double subTotal = items.fold(
@@ -58,10 +62,8 @@ class OrderSummaryScreen extends StatelessWidget {
                 const Gap(25),
                 _buildSection("التوصيل والدفع", ""),
 
-                // داخل صفحة ملخص الطلب - جزء العنوان
                 BlocBuilder<AddressBloc, AddressState>(
                   builder: (context, addrState) {
-                    // حل مشكلة الـ Null: نتأكد أولاً أن القائمة ليست فارغة
                     if (addrState.addresses.isEmpty) {
                       return _buildInfoTile(
                         Icons.location_off_outlined,
@@ -71,10 +73,8 @@ class OrderSummaryScreen extends StatelessWidget {
                       );
                     }
 
-                    // نأخذ العنوان المختار بأمان
                     final addr = addrState.addresses[addrState.selectedIndex];
 
-                    // نستخدم الـ ?? بدلاً من الـ ! لمنع الانهيار نهائياً
                     String title = addr["title_ar"] ?? addr["title"] ?? "عنوان";
                     String desc =
                         addr["desc_ar"] ?? addr["desc"] ?? "لا يوجد وصف";
@@ -98,7 +98,8 @@ class OrderSummaryScreen extends StatelessWidget {
                 const Gap(30),
                 _buildPremiumBillCard(subTotal, shipping, tax, total),
                 const Gap(40),
-                _buildConfirmButton(context, items.isEmpty, total),
+                // تمرير القائمة للتأكد من حالتها عند الضغط
+                _buildConfirmButton(context, items, total),
                 const Gap(30),
               ],
             ),
@@ -107,8 +108,6 @@ class OrderSummaryScreen extends StatelessWidget {
       ),
     );
   }
-
-  // --- الودجت التي كانت ناقصة وتسبب الخطأ الأحمر ---
 
   Widget _buildSection(String title, String count) {
     return Padding(
@@ -165,7 +164,13 @@ class OrderSummaryScreen extends StatelessWidget {
                 color: const Color(0xFFF3F3F3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Image.asset(item.product.image, width: 40, height: 40),
+              child: Image.network(
+                item.product.image,
+                width: 40,
+                height: 40,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.image_outlined),
+              ),
             ),
             title: Text(
               item.product.name,
@@ -279,22 +284,72 @@ class OrderSummaryScreen extends StatelessWidget {
     ],
   );
 
-  Widget _buildConfirmButton(BuildContext context, bool isEmpty, double total) {
+  Widget _buildConfirmButton(
+    BuildContext context,
+    List cartItems,
+    double total,
+  ) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.orange,
         minimumSize: const Size(double.infinity, 60),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
-      onPressed: isEmpty
+      onPressed: cartItems.isEmpty
           ? null
-          : () => Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OrderSuccessScreen(totalPrice: total),
-              ),
-              (route) => false,
-            ),
+          : () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(color: Colors.orange),
+                ),
+              );
+
+              try {
+                final addrState = context.read<AddressBloc>().state;
+                final selectedAddr =
+                    addrState.addresses[addrState.selectedIndex];
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+
+                if (uid == null) throw Exception("User not logged in");
+
+                final orderRef = FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .collection('orders')
+                    .doc();
+
+                await orderRef.set({
+                  'orderId': orderRef.id,
+                  'items': cartItems.map((item) => item.toMap()).toList(),
+                  'totalPrice': total,
+                  'address': selectedAddr,
+                  'status': 'قيد التنفيذ',
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+
+                context.read<CartBloc>().add(const ClearCart());
+
+                if (!context.mounted) return;
+                Navigator.pop(context); // إغلاق الديالوج
+
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrderSuccessScreen(totalPrice: total),
+                  ),
+                  (route) => false,
+                );
+              } catch (e) {
+                if (context.mounted) Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("عذراً، حدث خطأ أثناء إتمام الطلب: $e"),
+                  ),
+                );
+              }
+            },
       child: const Text(
         "تأكيد ودفع الآن",
         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),

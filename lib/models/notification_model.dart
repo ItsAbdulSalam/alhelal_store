@@ -1,68 +1,100 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
-enum NotificationCategory { order, cart, offer, system }
 
 class AppNotification {
   final String id;
   final String title;
   final String body;
   final DateTime createdAt;
-  final NotificationCategory category;
   final bool isRead;
-  final String? payload;
+  final IconData icon;
+  final Color color;
 
-  const AppNotification({
+  AppNotification({
     required this.id,
     required this.title,
     required this.body,
     required this.createdAt,
-    required this.category,
-    this.isRead = false,
-    this.payload,
+    required this.isRead,
+    required this.icon,
+    required this.color,
   });
 
-  AppNotification copyWith({bool? isRead}) => AppNotification(
-        id: id,
-        title: title,
-        body: body,
-        createdAt: createdAt,
-        category: category,
-        isRead: isRead ?? this.isRead,
-        payload: payload,
-      );
-
-  Color get color {
-    switch (category) {
-      case NotificationCategory.order:
-        return const Color(0xFF34C759);
-      case NotificationCategory.cart:
-        return const Color(0xFFE8960C);
-      case NotificationCategory.offer:
-        return const Color(0xFFFF2D55);
-      case NotificationCategory.system:
-        return const Color(0xFF007AFF);
-    }
+  // دالة لتعديل حالة الإشعار محلياً (ضرورية لتصفير الرقم فوراً)
+  AppNotification copyWith({
+    String? id,
+    String? title,
+    String? body,
+    DateTime? createdAt,
+    bool? isRead,
+    IconData? icon,
+    Color? color,
+  }) {
+    return AppNotification(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      isRead: isRead ?? this.isRead,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+    );
   }
 
-  IconData get icon {
-    switch (category) {
-      case NotificationCategory.order:
-        return Icons.receipt_long_outlined;
-      case NotificationCategory.cart:
-        return Icons.shopping_bag_outlined;
-      case NotificationCategory.offer:
-        return Icons.local_offer_outlined;
-      case NotificationCategory.system:
-        return Icons.info_outline_rounded;
-    }
+  factory AppNotification.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    final type = data?['type'] as String?;
+
+    return AppNotification(
+      id: doc.id,
+      title: data?['title'] ?? '',
+      body: data?['body'] ?? '',
+      createdAt: (data?['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isRead: data?['isRead'] ?? false,
+      icon: _getIcon(type),
+      color: _getColor(type),
+    );
   }
 
   String get timeAgo {
-    final diff = DateTime.now().difference(createdAt);
-    if (diff.inSeconds < 60) return 'الآن';
-    if (diff.inMinutes < 60) return 'منذ ${diff.inMinutes} دقيقة';
-    if (diff.inHours < 24) return 'منذ ${diff.inHours} ساعة';
-    if (diff.inDays == 1) return 'أمس';
-    return 'منذ ${diff.inDays} أيام';
+    final now = DateTime.now();
+    final diff = now.difference(createdAt);
+
+    // إذا كان الفرق سالباً أو أقل من دقيقة، نعتبره "منذ ثوانٍ"
+    if (diff.isNegative || diff.inSeconds < 60) {
+      return 'منذ ثوانٍ';
+    }
+
+    if (diff.inMinutes < 60) {
+      return 'منذ ${diff.inMinutes} دقيقة';
+    }
+
+    if (diff.inHours < 24) {
+      return 'منذ ${diff.inHours} ساعة';
+    }
+
+    return 'منذ ${diff.inDays} يوم';
+  }
+
+  static IconData _getIcon(String? type) {
+    switch (type) {
+      case 'order':
+        return Icons.shopping_bag_rounded;
+      case 'promo':
+        return Icons.local_offer_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  static Color _getColor(String? type) {
+    switch (type) {
+      case 'order':
+        return Colors.blue;
+      case 'promo':
+        return Colors.orange;
+      default:
+        return Colors.amber;
+    }
   }
 }

@@ -1,10 +1,15 @@
 // ═══════════════════════════════════════════════════════════
-//  cart_event.dart
+//  cart_event.dart — الأحداث الخاصة بسلة التسوق
 // ═══════════════════════════════════════════════════════════
 import '../models/productModel.dart';
 
 abstract class CartEvent {
   const CartEvent();
+}
+
+// حدث أساسي لتحميل محتويات السلة من Firestore
+class LoadCart extends CartEvent {
+  const LoadCart();
 }
 
 class AddToCart extends CartEvent {

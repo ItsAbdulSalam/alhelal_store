@@ -146,7 +146,7 @@ class _FavoriteCard extends StatelessWidget {
                       color: c.surfaceHigh,
                       child: Image.asset(product.image,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, _, ___) => Icon(
+                          errorBuilder: (_, _, _) => Icon(
                               Icons.image_outlined,
                               color: c.textMuted)),
                     ),

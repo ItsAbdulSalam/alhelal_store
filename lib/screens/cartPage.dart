@@ -1,6 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-//  cart_screen.dart — BLoC-powered, AppColors themed
-// ═══════════════════════════════════════════════════════════
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,8 +10,20 @@ import '../models/productModel.dart';
 import '../shared/app_colors.dart';
 import 'order_summary_screen.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // تحميل بيانات السلة من Firestore فور فتح الصفحة
+    context.read<CartBloc>().add(const LoadCart());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,13 +45,7 @@ class CartScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          // زر مسح السلة
           BlocBuilder<CartBloc, CartState>(
-            buildWhen: (p, n) =>
-                (p is CartUpdated) != (n is CartUpdated) ||
-                (p is CartUpdated &&
-                    n is CartUpdated &&
-                    p.itemCount != n.itemCount),
             builder: (context, state) {
               if (state is! CartUpdated || state.cartItems.isEmpty) {
                 return const SizedBox.shrink();
@@ -60,6 +63,11 @@ class CartScreen extends StatelessWidget {
       ),
       body: BlocBuilder<CartBloc, CartState>(
         builder: (context, state) {
+          if (state is CartLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.orange),
+            );
+          }
           if (state is! CartUpdated || state.cartItems.isEmpty) {
             return _EmptyCart(c: c);
           }
@@ -79,31 +87,33 @@ class CartScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: c.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: c.border, width: 0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'مسح السلة',
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        title: Text('مسح السلة',
-            style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w700)),
-        content: Text('هل تريد مسح جميع المنتجات؟',
-            style: TextStyle(color: c.textSecondary, fontSize: 13)),
+        content: Text(
+          'هل تريد مسح جميع المنتجات؟',
+          style: TextStyle(color: c.textSecondary, fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child:
-                Text('إلغاء', style: TextStyle(color: c.textSecondary)),
+            child: Text('إلغاء', style: TextStyle(color: c.textSecondary)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               context.read<CartBloc>().add(const ClearCart());
             },
-            child: Text('مسح',
-                style: TextStyle(
-                    color: c.error, fontWeight: FontWeight.w600)),
+            child: Text(
+              'مسح',
+              style: TextStyle(color: c.error, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -111,7 +121,7 @@ class CartScreen extends StatelessWidget {
   }
 }
 
-// ── Empty State ──────────────────────────────────────────
+// ── حالة السلة الفارغة ──────────────────────────────────────────
 class _EmptyCart extends StatelessWidget {
   final AppColors c;
   const _EmptyCart({required this.c});
@@ -124,21 +134,26 @@ class _EmptyCart extends StatelessWidget {
         children: [
           Icon(Icons.shopping_bag_outlined, size: 72, color: c.textMuted),
           const Gap(16),
-          Text('حقيبة التسوق فارغة',
-              style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500)),
+          Text(
+            'حقيبة التسوق فارغة',
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const Gap(8),
-          Text('أضف منتجاتك المفضلة',
-              style: TextStyle(color: c.textMuted, fontSize: 13)),
+          Text(
+            'أضف منتجاتك المفضلة',
+            style: TextStyle(color: c.textMuted, fontSize: 13),
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Cart List ────────────────────────────────────────────
+// ── قائمة المنتجات ────────────────────────────────────────────
 class _CartList extends StatelessWidget {
   final List<CartItem> items;
   final AppColors c;
@@ -154,7 +169,7 @@ class _CartList extends StatelessWidget {
   }
 }
 
-// ── Cart Tile ────────────────────────────────────────────
+// ── عنصر السلة الواحد ────────────────────────────────────────────
 class _CartTile extends StatelessWidget {
   final CartItem item;
   final AppColors c;
@@ -172,35 +187,35 @@ class _CartTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // صورة المنتج
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 76,
               height: 76,
               color: c.surfaceHigh,
-              child: Image.asset(item.product.image,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Icon(
-                      Icons.image_outlined,
-                      color: c.textMuted)),
+              child: Image.network(
+                item.product.image,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) =>
+                    Icon(Icons.image_outlined, color: c.textMuted),
+              ),
             ),
           ),
           const Gap(12),
-
-          // تفاصيل
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.product.name,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  item.product.name,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const Gap(6),
                 Text(
                   '\$${(item.product.price * item.quantity).toStringAsFixed(2)}',
@@ -213,20 +228,20 @@ class _CartTile extends StatelessWidget {
               ],
             ),
           ),
-
-          // التحكم في الكمية
           Column(
             children: [
-              // حذف
               GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  context
-                      .read<CartBloc>()
-                      .add(RemoveFromCart(product: item.product));
+                  context.read<CartBloc>().add(
+                    RemoveFromCart(product: item.product),
+                  );
                 },
-                child: Icon(Icons.delete_outline_rounded,
-                    color: c.error, size: 18),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  color: c.error,
+                  size: 18,
+                ),
               ),
               const Gap(10),
               _QtyControl(item: item, c: c),
@@ -238,7 +253,7 @@ class _CartTile extends StatelessWidget {
   }
 }
 
-// ── Quantity Control ─────────────────────────────────────
+// ── التحكم في الكمية ─────────────────────────────────────────────
 class _QtyControl extends StatelessWidget {
   final CartItem item;
   final AppColors c;
@@ -258,19 +273,25 @@ class _QtyControl extends StatelessWidget {
           _QtyBtn(
             icon: Icons.remove,
             onTap: () => context.read<CartBloc>().add(
-                UpdateQuantity(product: item.product, isIncrement: false)),
+              UpdateQuantity(product: item.product, isIncrement: false),
+            ),
             c: c,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text('${item.quantity}',
-                style: TextStyle(
-                    color: c.textPrimary, fontWeight: FontWeight.w700)),
+            child: Text(
+              '${item.quantity}',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           _QtyBtn(
             icon: Icons.add,
             onTap: () => context.read<CartBloc>().add(
-                UpdateQuantity(product: item.product, isIncrement: true)),
+              UpdateQuantity(product: item.product, isIncrement: true),
+            ),
             c: c,
           ),
         ],
@@ -297,7 +318,7 @@ class _QtyBtn extends StatelessWidget {
   }
 }
 
-// ── Checkout Bar ─────────────────────────────────────────
+// ── شريط الدفع السفلي ───────────────────────────────────────────
 class _CheckoutBar extends StatelessWidget {
   final CartUpdated state;
   final AppColors c;
@@ -306,14 +327,12 @@ class _CheckoutBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).padding.bottom;
-
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
-        padding:
-            EdgeInsets.fromLTRB(20, 16, 20, bottom + 16),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 16),
         decoration: BoxDecoration(
           color: c.surface,
           border: Border(top: BorderSide(color: c.border, width: 0.5)),
@@ -321,15 +340,17 @@ class _CheckoutBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // الإجمالي
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('الإجمالي',
-                    style: TextStyle(
-                        color: c.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500)),
+                Text(
+                  'الإجمالي',
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 Text(
                   '\$${state.total.toStringAsFixed(2)}',
                   style: TextStyle(
@@ -341,8 +362,6 @@ class _CheckoutBar extends StatelessWidget {
               ],
             ),
             const Gap(14),
-
-            // زر الدفع
             _CheckoutButton(c: c),
           ],
         ),
@@ -351,53 +370,31 @@ class _CheckoutBar extends StatelessWidget {
   }
 }
 
-class _CheckoutButton extends StatefulWidget {
+class _CheckoutButton extends StatelessWidget {
   final AppColors c;
   const _CheckoutButton({required this.c});
 
   @override
-  State<_CheckoutButton> createState() => _CheckoutButtonState();
-}
-
-class _CheckoutButtonState extends State<_CheckoutButton> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final c = widget.c;
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const OrderSummaryScreen()));
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: double.infinity,
-          height: 54,
-          decoration: BoxDecoration(
-            color: c.gold,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Center(
-            child: Text(
-              'إتمام الدفع',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const OrderSummaryScreen()),
+      ),
+      child: Container(
+        width: double.infinity,
+        height: 54,
+        decoration: BoxDecoration(
+          color: c.gold,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Center(
+          child: Text(
+            'إتمام الدفع',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),

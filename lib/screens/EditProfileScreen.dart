@@ -1,10 +1,16 @@
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:first_store/bloc/profile/profile_bloc.dart';
+import 'package:first_store/services/database_service.dart';
+import 'package:first_store/services/notification_service.dart'; // ✅ استيراد الخدمة
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gap/gap.dart';
+import 'package:image_picker/image_picker.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
+
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
@@ -24,6 +30,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneCtrl = TextEditingController(text: state.phone);
   }
 
+  Future<void> _updatePhoto() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 50,
+    );
+
+    if (image != null) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('جاري رفع الصورة...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+
+        try {
+          final downloadUrl = await DatabaseService().uploadProfileImage(
+            File(image.path),
+            uid,
+          );
+
+          if (!mounted) return;
+
+          context.read<ProfileBloc>().add(UpdateAvatar(newPath: downloadUrl!));
+
+          // ✅ إرسال إشعار عند نجاح تغيير الصورة
+          await NotificationService.instance.sendNotification(
+            title: "تحديث الصورة الشخصية ✨",
+            body: "يا سلام، لقد قمت بتغيير صورتك الشخصية بنجاح.",
+            type: "promo",
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم تحديث الصورة بنجاح ✓'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('فشل تحديث الصورة: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -39,6 +101,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return BlocListener<ProfileBloc, ProfileState>(
       listener: (context, state) {
         if (state.isSaved) {
+          // ✅ التعديل الاحترافي: إرسال الإشعار فور تأكيد الحفظ من البلوك
+          NotificationService.instance.notifyProfileUpdate();
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('تم تحديث البيانات بنجاح ✓'),
@@ -55,7 +120,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         if (state.status == ProfileStatus.error) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.errorMessage ?? 'حدث خطأ'),
+              content: Text(state.errorMessage ?? 'حدث خطأ في الاتصال'),
               backgroundColor: Colors.red.shade700,
               behavior: SnackBarBehavior.floating,
             ),
@@ -64,7 +129,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('تعديل الملف الشخصي'),
+          title: const Text(
+            'تعديل الملف الشخصي',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
             onPressed: () => Navigator.pop(context),
@@ -77,59 +146,74 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // ── الأفاتار ──
-                Stack(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.orange.withOpacity(0.25),
-                            blurRadius: 20,
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: 55,
-                        backgroundColor: isDark
-                            ? const Color(0xFF1A1A1A)
-                            : const Color(0xFFF5F5F5),
-                        child: Icon(
-                          Icons.person_rounded,
-                          size: 55,
-                          color: isDark ? Colors.grey[700] : Colors.grey[400],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 2,
-                      right: 2,
-                      child: Container(
-                        width: 32,
-                        height: 32,
+                GestureDetector(
+                  onTap: _updatePhoto,
+                  child: Stack(
+                    children: [
+                      Container(
                         decoration: BoxDecoration(
-                          color: Colors.orange,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF0F0F0F)
-                                : Colors.white,
-                            width: 2,
-                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withOpacity(0.2),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                        child: const Icon(
-                          Icons.camera_alt_rounded,
-                          color: Colors.white,
-                          size: 16,
+                        child: BlocBuilder<ProfileBloc, ProfileState>(
+                          builder: (context, state) {
+                            return CircleAvatar(
+                              radius: 55,
+                              backgroundColor: isDark
+                                  ? const Color(0xFF1A1A1A)
+                                  : const Color(0xFFF5F5F5),
+                              backgroundImage:
+                                  (state.avatarPath.isNotEmpty &&
+                                      state.avatarPath.startsWith('http'))
+                                  ? NetworkImage(state.avatarPath)
+                                  : const AssetImage('assets/images/me.jpg')
+                                        as ImageProvider,
+                              child: (state.avatarPath.isEmpty)
+                                  ? Icon(
+                                      Icons.person_rounded,
+                                      size: 55,
+                                      color: isDark
+                                          ? Colors.grey[700]
+                                          : Colors.grey[400],
+                                    )
+                                  : null,
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        bottom: 2,
+                        right: 2,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF0F0F0F)
+                                  : Colors.white,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-
                 const Gap(36),
-
                 _ProfileField(
                   label: 'الاسم الكامل',
                   controller: _nameCtrl,
@@ -155,9 +239,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   keyboardType: TextInputType.phone,
                   validator: (v) => v!.trim().isEmpty ? 'الهاتف مطلوب' : null,
                 ),
-
                 const Gap(40),
-
                 BlocBuilder<ProfileBloc, ProfileState>(
                   builder: (context, state) {
                     final isSaving = state.status == ProfileStatus.saving;
@@ -287,10 +369,6 @@ class _ProfileField extends StatelessWidget {
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

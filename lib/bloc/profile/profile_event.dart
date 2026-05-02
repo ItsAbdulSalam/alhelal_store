@@ -1,16 +1,28 @@
 part of 'profile_bloc.dart';
 
-abstract class ProfileEvent {}
+abstract class ProfileEvent {
+  const ProfileEvent();
+}
 
+// تحميل بيانات الملف الشخصي
 class LoadProfile extends ProfileEvent {}
 
+// تحديث البيانات النصية (الاسم، البريد، الهاتف)
 class UpdateProfile extends ProfileEvent {
   final String name;
   final String email;
   final String phone;
+
   UpdateProfile({required this.name, required this.email, required this.phone});
 }
 
+// --- الحدث الجديد الذي أضفناه لحل مشكلة الصورة ---
+class UpdateAvatar extends ProfileEvent {
+  final String newPath;
+  const UpdateAvatar({required this.newPath});
+}
+
+// إدارة الإشعارات
 class MarkAllNotificationsRead extends ProfileEvent {}
 
 class ToggleNotificationRead extends ProfileEvent {
@@ -18,6 +30,7 @@ class ToggleNotificationRead extends ProfileEvent {
   ToggleNotificationRead(this.index);
 }
 
+// إدارة بطاقات الدفع
 class AddPaymentCard extends ProfileEvent {
   final Map<String, dynamic> card;
   AddPaymentCard(this.card);

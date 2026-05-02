@@ -1,63 +1,114 @@
 // ═══════════════════════════════════════════════════════════
-//  cart_bloc.dart  — pure BLoC, no global state
+//  cart_bloc.dart — Cloud Synchronized Version
 // ═══════════════════════════════════════════════════════════
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:first_store/models/productModel.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../models/productModel.dart';
 import 'cart_event.dart';
 import 'cart_state.dart';
 
 class CartBloc extends Bloc<CartEvent, CartState> {
-  final List<CartItem> _items = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   CartBloc() : super(const CartInitial()) {
+    on<LoadCart>(_onLoadCart); // حدث جديد لتحميل السلة من السحابة
     on<AddToCart>(_onAdd);
     on<UpdateQuantity>(_onUpdate);
     on<RemoveFromCart>(_onRemove);
     on<ClearCart>(_onClear);
   }
 
-  List<CartItem> get items => List.unmodifiable(_items);
+  // 1. تحميل السلة عند فتح التطبيق
+  Future<void> _onLoadCart(LoadCart e, Emitter<CartState> emit) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
 
-  void _onAdd(AddToCart e, Emitter<CartState> emit) {
-    final idx = _items.indexWhere((i) => i.product.id == e.product.id);
-    if (idx != -1) {
-      _items[idx] = CartItem(
-        product: _items[idx].product,
-        quantity: _items[idx].quantity + e.quantity,
-      );
-    } else {
-      _items.add(CartItem(product: e.product, quantity: e.quantity));
-    }
-    emit(CartUpdated(List.from(_items)));
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('cart')
+        .get();
+    final items = snapshot.docs
+        .map((doc) => CartItem.fromMap(doc.data()))
+        .toList();
+
+    emit(CartUpdated(items));
   }
 
-  void _onUpdate(UpdateQuantity e, Emitter<CartState> emit) {
-    final idx = _items.indexWhere((i) => i.product.id == e.product.id);
-    if (idx == -1) return;
+  // 2. إضافة منتج وتحديث السحابة
+  Future<void> _onAdd(AddToCart e, Emitter<CartState> emit) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final cartDoc = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('cart')
+        .doc(e.product.id);
+
+    // إذا كان المنتج موجوداً نزيد الكمية، وإذا لم يكن موجوداً ننشئه
+    await cartDoc.set({
+      'product': e.product.toMap(),
+      'quantity': FieldValue.increment(e.quantity),
+    }, SetOptions(merge: true));
+
+    add(LoadCart()); // إعادة التحميل لضمان دقة البيانات
+  }
+
+  // 3. تحديث الكمية (+ أو -)
+  Future<void> _onUpdate(UpdateQuantity e, Emitter<CartState> emit) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final cartDoc = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('cart')
+        .doc(e.product.id);
 
     if (e.isIncrement) {
-      _items[idx] = CartItem(
-        product: _items[idx].product,
-        quantity: _items[idx].quantity + 1,
-      );
-    } else if (_items[idx].quantity > 1) {
-      _items[idx] = CartItem(
-        product: _items[idx].product,
-        quantity: _items[idx].quantity - 1,
-      );
+      await cartDoc.update({'quantity': FieldValue.increment(1)});
     } else {
-      _items.removeAt(idx);
+      // منطق الحذف إذا وصلت الكمية لـ 1 وضغط المستخدم ناقص
+      final doc = await cartDoc.get();
+      if (doc.exists && doc.data()?['quantity'] > 1) {
+        await cartDoc.update({'quantity': FieldValue.increment(-1)});
+      } else {
+        await cartDoc.delete();
+      }
     }
-    emit(CartUpdated(List.from(_items)));
+    add(LoadCart());
   }
 
-  void _onRemove(RemoveFromCart e, Emitter<CartState> emit) {
-    _items.removeWhere((i) => i.product.id == e.product.id);
-    emit(CartUpdated(List.from(_items)));
+  // 4. حذف منتج نهائياً
+  Future<void> _onRemove(RemoveFromCart e, Emitter<CartState> emit) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('cart')
+        .doc(e.product.id)
+        .delete();
+    add(LoadCart());
   }
 
-  void _onClear(ClearCart e, Emitter<CartState> emit) {
-    _items.clear();
-    emit(CartUpdated(const []));
+  // 5. تفريغ السلة (بعد إتمام الشراء)
+  Future<void> _onClear(ClearCart e, Emitter<CartState> emit) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final cartItems = await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('cart')
+        .get();
+    for (var doc in cartItems.docs) {
+      await doc.reference.delete();
+    }
+    emit(CartUpdated([]));
   }
 }

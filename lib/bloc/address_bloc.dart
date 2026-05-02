@@ -1,42 +1,104 @@
-import 'dart:convert';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:first_store/bloc/address_event.dart';
 import 'package:first_store/bloc/address_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AddressBloc extends Bloc<AddressEvent, AddressState> {
-  AddressBloc()
-    : super(AddressState(addresses: [], selectedIndex: 0, isLoading: true)) {
-    on<LoadAddresses>((event, emit) async {
-      final prefs = await SharedPreferences.getInstance();
-      final String? savedData = prefs.getString('user_addresses');
-      final int savedIndex = prefs.getInt('selected_index') ?? 0;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-      if (savedData != null) {
-        List<Map<String, String>> loaded = List<Map<String, String>>.from(
-          json.decode(savedData).map((item) => Map<String, String>.from(item)),
-        );
-        emit(AddressState(addresses: loaded, selectedIndex: savedIndex));
-      } else {
-        emit(
-          AddressState(
-            addresses: [
-              {"title": "المنزل", "desc": "Istanbul -  Esenler  -  519Street"},
-              {"title": "العمل", "desc": "Istanbul - Eyüpsultan - Flatofis"},
-            ].toList(),
-            selectedIndex: 0,
-          ),
-        );
+  AddressBloc()
+      : super(AddressState(addresses: [], selectedIndex: 0, isLoading: true)) {
+    
+    // 1. ── تحميل العناوين من Firestore ──
+    on<LoadAddresses>((event, emit) async {
+      emit(state.copyWith(isLoading: true));
+      try {
+        final user = _auth.currentUser;
+        if (user == null) return;
+
+        final snapshot = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('addresses')
+            .orderBy('createdAt', descending: true) // ترتيب العناوين حسب الأحدث
+            .get();
+
+        final loaded = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            "id": doc.id,
+            "title": data['title']?.toString() ?? "",
+            "desc": data['desc']?.toString() ?? "",
+            "isDefault": data['isDefault'] ?? false,
+          };
+        }).toList();
+
+        int defaultIndex = loaded.indexWhere((addr) => addr['isDefault'] == true);
+        if (defaultIndex == -1) defaultIndex = 0;
+
+        emit(state.copyWith(
+          addresses: loaded,
+          selectedIndex: defaultIndex,
+          isLoading: false,
+        ));
+      } catch (e) {
+        emit(state.copyWith(isLoading: false));
+        // ignore: avoid_print
+        print("خطأ في تحميل العناوين: $e");
       }
     });
 
-    on<SelectAddress>((event, emit) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('selected_index', event.index);
-      emit(
-        AddressState(addresses: state.addresses, selectedIndex: event.index),
-      );
+    // 2. ── إضافة عنوان جديد ──
+    on<AddAddress>((event, emit) async {
+      try {
+        final user = _auth.currentUser;
+        if (user == null) return;
+
+        // إضافة العنوان إلى Firestore
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('addresses')
+            .add({
+          'title': event.title,
+          'desc': event.desc,
+          'isDefault': state.addresses.isEmpty, // اجعله افتراضي إذا كانت القائمة فارغة
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // إعادة تحميل القائمة لتحديث الواجهة
+        add(LoadAddresses());
+      } catch (e) {
+        // ignore: avoid_print
+        print("خطأ في إضافة العنوان: $e");
+      }
+    });
+
+    // 3. ── حذف عنوان ──
+    on<DeleteAddress>((event, emit) async {
+      try {
+        final user = _auth.currentUser;
+        if (user == null) return;
+
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('addresses')
+            .doc(event.addressId)
+            .delete();
+
+        add(LoadAddresses());
+      } catch (e) {
+        // ignore: avoid_print
+        print("خطأ في حذف العنوان: $e");
+      }
+    });
+
+    // 4. ── اختيار العنوان (تحديث الـ UI) ──
+    on<SelectAddress>((event, emit) {
+      emit(state.copyWith(selectedIndex: event.index));
     });
   }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "349911351256",
+    "project_id": "alhelal-prime",
+    "storage_bucket": "alhelal-prime.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:349911351256:android:45e1f66f023fe142e3bcad",
+        "android_client_info": {
+          "package_name": "com.example.first_store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQ-Ga8pEc30_gbO9A398F9cXIkj3dnVRY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
