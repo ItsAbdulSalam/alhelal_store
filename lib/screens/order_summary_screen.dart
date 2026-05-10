@@ -42,13 +42,14 @@ class OrderSummaryScreen extends StatelessWidget {
           // تصحيح: الحصول على العناصر من حالة الـ Bloc مباشرة
           final items = cartState is CartUpdated ? cartState.cartItems : [];
 
-          double subTotal = items.fold(
+          final double subTotal = items.fold(
             0.0,
+            // ignore: avoid_types_as_parameter_names
             (sum, item) => sum + (item.product.price * item.quantity),
           );
-          double shipping = subTotal > 0 ? 25.0 : 0.0;
-          double tax = subTotal * 0.15;
-          double total = subTotal + shipping + tax;
+          final double shipping = subTotal > 0 ? 25.0 : 0.0;
+          final double tax = subTotal * 0.15;
+          final double total = subTotal + shipping + tax;
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -75,8 +76,9 @@ class OrderSummaryScreen extends StatelessWidget {
 
                     final addr = addrState.addresses[addrState.selectedIndex];
 
-                    String title = addr["title_ar"] ?? addr["title"] ?? "عنوان";
-                    String desc =
+                    final String title =
+                        addr["title_ar"] ?? addr["title"] ?? "عنوان";
+                    final String desc =
                         addr["desc_ar"] ?? addr["desc"] ?? "لا يوجد وصف";
 
                     return _buildInfoTile(
@@ -329,6 +331,7 @@ class OrderSummaryScreen extends StatelessWidget {
                   'createdAt': FieldValue.serverTimestamp(),
                 });
 
+                // ignore: use_build_context_synchronously
                 context.read<CartBloc>().add(const ClearCart());
 
                 if (!context.mounted) return;

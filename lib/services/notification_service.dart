@@ -24,12 +24,12 @@ class NotificationService {
           .doc(uid)
           .collection('notifications')
           .add({
-        'title': title,
-        'body': body,
-        'type': type,
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+            'title': title,
+            'body': body,
+            'type': type,
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
       debugPrint("خطأ في إرسال الإشعار: $e");
     }
@@ -38,8 +38,9 @@ class NotificationService {
   // إشعار تلقائي عند تحديث الملف الشخصي
   Future<void> notifyProfileUpdate() async {
     await sendNotification(
-      title: "تم تحديث بياناتك ✨",
-      body: "يا سلام، لقد تم حفظ التعديلات الجديدة على ملفك الشخصي بنجاح.",
+      title: "تم تحديث بياناتك ",
+      body:
+          "  تم تحديث ملفك الشخصي بنجاح. استمتع بتجربة تسوق أفضل مع الهلال PRIME!",
       type: "promo",
     );
   }

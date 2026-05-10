@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,7 +22,7 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    // تحميل بيانات السلة من Firestore فور فتح الصفحة
+    // تحميل بيانات السلة من Firestore فور فتح الصفحة لضمان المزامنة
     context.read<CartBloc>().add(const LoadCart());
   }
 
@@ -54,7 +55,11 @@ class _CartScreenState extends State<CartScreen> {
                 onPressed: () => _confirmClear(context, c),
                 child: Text(
                   'مسح الكل',
-                  style: TextStyle(color: c.error, fontSize: 12),
+                  style: TextStyle(
+                    color: c.error,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               );
             },
@@ -97,7 +102,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
         content: Text(
-          'هل تريد مسح جميع المنتجات؟',
+          'هل تريد مسح جميع المنتجات من السلة؟',
           style: TextStyle(color: c.textSecondary, fontSize: 13),
         ),
         actions: [
@@ -111,7 +116,7 @@ class _CartScreenState extends State<CartScreen> {
               context.read<CartBloc>().add(const ClearCart());
             },
             child: Text(
-              'مسح',
+              'مسح الآن',
               style: TextStyle(color: c.error, fontWeight: FontWeight.w600),
             ),
           ),
@@ -132,7 +137,11 @@ class _EmptyCart extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_bag_outlined, size: 72, color: c.textMuted),
+          Icon(
+            Icons.shopping_bag_outlined,
+            size: 72,
+            color: c.textMuted.withOpacity(0.5),
+          ),
           const Gap(16),
           Text(
             'حقيبة التسوق فارغة',
@@ -144,7 +153,7 @@ class _EmptyCart extends StatelessWidget {
           ),
           const Gap(8),
           Text(
-            'أضف منتجاتك المفضلة',
+            'أضف منتجاتك المفضلة لتبدأ التسوق',
             style: TextStyle(color: c.textMuted, fontSize: 13),
           ),
         ],
@@ -183,7 +192,14 @@ class _CartTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.border, width: 0.5),
+        border: Border.all(color: c.border.withOpacity(0.5), width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -192,13 +208,8 @@ class _CartTile extends StatelessWidget {
             child: Container(
               width: 76,
               height: 76,
-              color: c.surfaceHigh,
-              child: Image.network(
-                item.product.image,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) =>
-                    Icon(Icons.image_outlined, color: c.textMuted),
-              ),
+              color: c.bg,
+              child: _buildImage(item.product.image),
             ),
           ),
           const Gap(12),
@@ -221,7 +232,7 @@ class _CartTile extends StatelessWidget {
                   '\$${(item.product.price * item.quantity).toStringAsFixed(2)}',
                   style: TextStyle(
                     color: c.gold,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     fontSize: 15,
                   ),
                 ),
@@ -229,27 +240,70 @@ class _CartTile extends StatelessWidget {
             ),
           ),
           Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               GestureDetector(
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  HapticFeedback.mediumImpact();
                   context.read<CartBloc>().add(
                     RemoveFromCart(product: item.product),
                   );
                 },
                 child: Icon(
-                  Icons.delete_outline_rounded,
-                  color: c.error,
-                  size: 18,
+                  Icons.delete_sweep_outlined,
+                  color: c.error.withOpacity(0.8),
+                  size: 20,
                 ),
               ),
-              const Gap(10),
+              const Gap(12),
               _QtyControl(item: item, c: c),
             ],
           ),
         ],
       ),
     );
+  }
+
+  // ✅ دالة معالجة عرض الصور باحترافية لضمان الظهور دائماً
+  Widget _buildImage(String path) {
+    if (path.isEmpty) {
+      return Icon(Icons.image_not_supported_outlined, color: c.textMuted);
+    }
+
+    if (path.startsWith('http')) {
+      return Image.network(
+        path,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+            ),
+          );
+        },
+        errorBuilder: (_, _, _) =>
+            Icon(Icons.broken_image_outlined, color: c.textMuted),
+      );
+    } else if (path.startsWith('/') || path.contains('data/user')) {
+      return Image.file(
+        File(path),
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) =>
+            Icon(Icons.image_outlined, color: c.textMuted),
+      );
+    } else {
+      return Image.asset(
+        path,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) =>
+            Icon(Icons.image_outlined, color: c.textMuted),
+      );
+    }
   }
 }
 
@@ -263,28 +317,30 @@ class _QtyControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: c.surfaceHigh,
+        color: c.bg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.border, width: 0.5),
+        border: Border.all(color: c.border.withOpacity(0.3), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _QtyBtn(
             icon: Icons.remove,
-            onTap: () => context.read<CartBloc>().add(
-              UpdateQuantity(product: item.product, isIncrement: false),
-            ),
+            onTap: () {
+              if (item.quantity > 1) {
+                context.read<CartBloc>().add(
+                  UpdateQuantity(product: item.product, isIncrement: false),
+                );
+              }
+            },
             c: c,
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              '${item.quantity}',
-              style: TextStyle(
-                color: c.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+          Text(
+            '${item.quantity}',
+            style: TextStyle(
+              color: c.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
             ),
           ),
           _QtyBtn(
@@ -309,10 +365,13 @@ class _QtyBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Padding(
-        padding: const EdgeInsets.all(7),
-        child: Icon(icon, size: 15, color: c.textSecondary),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Icon(icon, size: 14, color: c.textPrimary),
       ),
     );
   }
@@ -335,7 +394,14 @@ class _CheckoutBar extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(20, 16, 20, bottom + 16),
         decoration: BoxDecoration(
           color: c.surface,
-          border: Border(top: BorderSide(color: c.border, width: 0.5)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -344,10 +410,10 @@ class _CheckoutBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'الإجمالي',
+                  'إجمالي المبلغ',
                   style: TextStyle(
                     color: c.textSecondary,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -355,13 +421,13 @@ class _CheckoutBar extends StatelessWidget {
                   '\$${state.total.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: c.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
-            const Gap(14),
+            const Gap(16),
             _CheckoutButton(c: c),
           ],
         ),
@@ -383,17 +449,24 @@ class _CheckoutButton extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        height: 54,
+        height: 56,
         decoration: BoxDecoration(
           color: c.gold,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: c.gold.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Center(
           child: Text(
-            'إتمام الدفع',
+            'إتمام عملية الدفع',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),

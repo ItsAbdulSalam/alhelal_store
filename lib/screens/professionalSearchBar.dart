@@ -9,7 +9,7 @@ import '../bloc/home_bloc.dart';
 import '../shared/app_colors.dart';
 
 class ProfessionalSearchBar extends StatefulWidget {
-  const ProfessionalSearchBar({super.key});
+  const ProfessionalSearchBar({super.key, required TextEditingController controller});
 
   @override
   State<ProfessionalSearchBar> createState() =>

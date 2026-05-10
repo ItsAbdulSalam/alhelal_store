@@ -1,3 +1,4 @@
+rootProject.name = "alhelal_store"
 pluginManagement {
     val flutterSdkPath =
         run {

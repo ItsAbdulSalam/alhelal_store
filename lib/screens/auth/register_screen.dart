@@ -210,10 +210,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onFieldSubmitted: (_) => _handleRegister(),
                         validator: (val) {
-                          if (val == null || val.isEmpty)
+                          if (val == null || val.isEmpty) {
                             return 'تأكيد كلمة المرور مطلوب';
-                          if (val != _passwordController.text)
+                          }
+                          if (val != _passwordController.text) {
                             return 'كلمتا المرور غير متطابقتين';
+                          }
                           return null;
                         },
                       ),

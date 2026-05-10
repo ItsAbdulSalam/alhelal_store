@@ -216,9 +216,9 @@ class _AddressScreenState extends State<AddressScreen> {
   }
 
   Widget _buildAddressCard(AddressState state, int index) {
-    bool isSelected = state.selectedIndex == index;
-    var addr = state.addresses[index];
-    String title = addr["title"] ?? "عنوان";
+    final bool isSelected = state.selectedIndex == index;
+    final addr = state.addresses[index];
+    final String title = addr["title"] ?? "عنوان";
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),

@@ -6,9 +6,8 @@ class Product {
   final String description;
   final double price;
   final String image;
-  final String category; 
-  bool isFavorite;
-  final List<ProductVariant>? variants;
+  final String category;
+  final List<ProductVariant> variants;
 
   Product({
     required this.id,
@@ -17,8 +16,7 @@ class Product {
     required this.price,
     required this.image,
     required this.category,
-    this.isFavorite = false,
-    this.variants,
+    this.variants = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -27,28 +25,52 @@ class Product {
       'name': name,
       'description': description,
       'price': price,
-      'image': image,
+      'image': image, // ✅ التأكد من إرسال الصورة للسلة
       'category': category,
-      'isFavorite': isFavorite,
-      'variants': variants?.map((v) => v.toMap()).toList(),
+      'variants': variants.map((v) => v.toMap()).toList(),
     };
   }
 
   factory Product.fromMap(Map<String, dynamic> map) {
+    // تصحيح: فحص الحقول بشكل فردي لضمان عدم سقوط أي منها أثناء التحويل من Map
     return Product(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      description: map['description'] ?? '',
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'منتج غير معروف',
+      description: map['description']?.toString() ?? '',
       price: (map['price'] ?? 0).toDouble(),
-      image: map['image'] ?? '',
-      category: map['category'] ?? '',
-      isFavorite: map['isFavorite'] ?? false,
-      variants: map['variants'] != null
-          ? List<ProductVariant>.from(
-              map['variants'].map((v) => ProductVariant.fromMap(v)))
-          : null,
+      image: map['image']?.toString() ?? '', // ✅ الحقل الحرج
+      category: map['category']?.toString() ?? '',
+      variants:
+          (map['variants'] as List?)
+              ?.map((v) => ProductVariant.fromMap(v as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
+}
+
+class ProductVariant {
+  final Color color;
+  final String image;
+  final String colorName;
+
+  ProductVariant({
+    required this.color,
+    required this.image,
+    this.colorName = '',
+  });
+
+  Map<String, dynamic> toMap() => {
+    'color': color.value,
+    'image': image,
+    'colorName': colorName,
+  };
+
+  factory ProductVariant.fromMap(Map<String, dynamic> map) => ProductVariant(
+    color: Color(map['color'] is int ? map['color'] : 0xFF000000),
+    image: map['image']?.toString() ?? '',
+    colorName: map['colorName']?.toString() ?? '',
+  );
 }
 
 class CartItem {
@@ -58,24 +80,18 @@ class CartItem {
   CartItem({required this.product, this.quantity = 1});
 
   Map<String, dynamic> toMap() => {
-    'product': product.toMap(),
+    'product': product
+        .toMap(), // ✅ استدعاء toMap الخاص بالمنتج لضمان حفظ الصورة
     'quantity': quantity,
   };
 
-  factory CartItem.fromMap(Map<String, dynamic> map) => CartItem(
-    product: Product.fromMap(map['product']),
-    quantity: map['quantity'] ?? 1,
-  );
-}
+  factory CartItem.fromMap(Map<String, dynamic> map) {
+    // تصحيح جذري: فحص البيانات المتداخلة (Nested Data)
+    final productData = map['product'] as Map<String, dynamic>? ?? {};
 
-class ProductVariant {
-  final Color color;
-  final String image;
-  ProductVariant({required this.color, required this.image});
-
-  Map<String, dynamic> toMap() => {'color': color.value, 'image': image};
-  factory ProductVariant.fromMap(Map<String, dynamic> map) => ProductVariant(
-    color: Color(map['color'] ?? 0xFF000000),
-    image: map['image'] ?? '',
-  );
+    return CartItem(
+      product: Product.fromMap(productData),
+      quantity: map['quantity'] ?? 1,
+    );
+  }
 }

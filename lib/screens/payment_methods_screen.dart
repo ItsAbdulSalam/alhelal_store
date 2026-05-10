@@ -242,7 +242,7 @@ class PaymentMethodsScreen extends StatelessWidget {
     final expCtrl = TextEditingController(
       text: index != null ? state.paymentCards[index]['expiry'] as String : '',
     );
-    String type = index != null
+    final String type = index != null
         ? state.paymentCards[index]['type'] as String
         : 'Visa';
 

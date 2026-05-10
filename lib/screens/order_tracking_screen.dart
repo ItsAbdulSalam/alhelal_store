@@ -11,7 +11,7 @@ class OrderTrackingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // استخراج الحالة الحالية للطلب لتحديد خطوات التتبع
-    String status = orderData['status'] ?? 'قيد التنفيذ';
+    final String status = orderData['status'] ?? 'قيد التنفيذ';
 
     return Scaffold(
       body: Container(
@@ -79,7 +79,7 @@ class OrderTrackingScreen extends StatelessWidget {
 
   Widget _buildOrderHeader(String status) {
     // عرض أول 8 أحرف من الـ Order ID
-    String displayId =
+    final String displayId =
         orderData['orderId']?.toString().substring(0, 8).toUpperCase() ?? "N/A";
 
     return Container(
@@ -137,10 +137,10 @@ class OrderTrackingScreen extends StatelessWidget {
 
   Widget _buildTrackingTimeline(String status) {
     // منطق بسيط لتحديد الخطوات المكتملة بناءً على الحالة في Firebase
-    bool isConfirmed = true; // مؤكد بمجرد الدفع
-    bool isProcessed = status == "قيد التوصيل" || status == "تم التسليم";
-    bool isShipped = status == "قيد التوصيل" || status == "تم التسليم";
-    bool isDelivered = status == "تم التسليم";
+    final bool isConfirmed = true; // مؤكد بمجرد الدفع
+    final bool isProcessed = status == "قيد التوصيل" || status == "تم التسليم";
+    final bool isShipped = status == "قيد التوصيل" || status == "تم التسليم";
+    final bool isDelivered = status == "تم التسليم";
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -236,7 +236,7 @@ class OrderTrackingScreen extends StatelessWidget {
 
   Widget _buildDeliveryInforCard() {
     // الحصول على اسم المستخدم من بيانات الطلب المرفوعة
-    String addressTitle =
+    final String addressTitle =
         orderData['address']?['title_ar'] ??
         orderData['address']?['title'] ??
         "العنوان المختار";

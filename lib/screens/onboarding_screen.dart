@@ -258,7 +258,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       const Gap(28),
 
                       // Brand wordmark — refined, not floating
-                      _BrandWordmark(gold: _gold),
+                      const _BrandWordmark(gold: _gold),
 
                       const Gap(24),
 

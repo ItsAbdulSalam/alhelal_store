@@ -54,7 +54,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       'quantity': FieldValue.increment(e.quantity),
     }, SetOptions(merge: true));
 
-    add(LoadCart()); // إعادة التحميل لضمان دقة البيانات
+    add(const LoadCart()); // إعادة التحميل لضمان دقة البيانات
   }
 
   // 3. تحديث الكمية (+ أو -)
@@ -79,7 +79,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         await cartDoc.delete();
       }
     }
-    add(LoadCart());
+    add(const LoadCart());
   }
 
   // 4. حذف منتج نهائياً
@@ -93,7 +93,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         .collection('cart')
         .doc(e.product.id)
         .delete();
-    add(LoadCart());
+    add(const LoadCart());
   }
 
   // 5. تفريغ السلة (بعد إتمام الشراء)
